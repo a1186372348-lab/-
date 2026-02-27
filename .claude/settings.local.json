@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir D:\\\\product\\\\zhushou:*)",
+      "Bash(node:*)",
+      "Bash(cargo:*)",
+      "Bash(cd /d/product/zhushou && npm create tauri-app@latest . -- --template react-ts --manager npm --yes 2>&1)",
+      "Bash(cp:*)",
+      "Bash(cd:*)",
+      "Bash(tail:*)",
+      "Bash(cd /d/product/zhushou && npx tsc --noEmit 2>&1)",
+      "Bash(cmd.exe:*)",
+      "Bash(head:*)",
+      "Bash(ls:*)",
+      "Bash(echo no gcc in PATH:*)",
+      "Bash(cd /d/product/zhushou && npm run tauri dev 2>&1)",
+      "Bash(netstat:*)",
+      "Bash(echo done:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(npm run:*)",
+      "Bash(taskkill /PID 28744 /F && taskkill /PID 7604 /F 2>&1)",
+      "Bash(exit 0:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)"
+    ]
+  }
+}

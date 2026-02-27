@@ -1,0 +1,62 @@
+.input-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 200px;
+  padding: 0 4px;
+}
+
+.input-field {
+  flex: 1;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--ui-bg);
+  border: 1.5px solid var(--ui-border);
+  border-radius: 17px;
+  color: var(--ui-fg);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.input-field::placeholder {
+  color: var(--ui-placeholder);
+}
+
+.input-field:focus {
+  border-color: var(--ui-fg);
+}
+
+.input-field:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mic-btn {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ui-btn-bg);
+  border: 1.5px solid var(--ui-border);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: opacity 0.15s, border-color 0.2s, background 0.2s;
+}
+
+.mic-btn:hover {
+  background: var(--ui-btn-hover-bg);
+  opacity: 0.9;
+}
+
+.mic-btn--recording {
+  border-color: #ff6b6b;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

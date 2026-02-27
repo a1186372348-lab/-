@@ -1,0 +1,33 @@
+.hover-menu {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 4px 0;
+  position: relative;
+  z-index: 10;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: var(--ui-btn-bg);
+  color: var(--ui-label);
+  border: 1.5px solid var(--ui-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, color 0.2s, border-color 0.2s;
+}
+
+.menu-item:hover {
+  background: var(--ui-btn-hover-bg);
+  transform: translateY(-2px);
+}
+
+.menu-icon {
+  font-size: 13px;
+  line-height: 1;
+}

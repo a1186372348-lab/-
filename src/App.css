@@ -1,0 +1,70 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* 默认深色主题（白色 UI），由 colorSampler 动态切换 */
+  --ui-fg: #ffffff;
+  --ui-bg: rgba(255, 255, 255, 0.08);
+  --ui-border: rgba(255, 255, 255, 0.9);
+  --ui-placeholder: rgba(255, 255, 255, 0.6);
+  --ui-btn-bg: rgba(255, 255, 255, 0.15);
+  --ui-btn-hover-bg: rgba(255, 255, 255, 0.25);
+  --ui-label: #ffffff;
+}
+
+/* 浅色背景 → 深色 UI */
+[data-bg-theme='light'] {
+  --ui-fg: #111111;
+  --ui-bg: rgba(0, 0, 0, 0.06);
+  --ui-border: rgba(0, 0, 0, 0.75);
+  --ui-placeholder: rgba(0, 0, 0, 0.45);
+  --ui-btn-bg: rgba(0, 0, 0, 0.08);
+  --ui-btn-hover-bg: rgba(0, 0, 0, 0.15);
+  --ui-label: #111111;
+}
+
+/* 深色背景 → 浅色 UI（同默认，明确写出方便维护） */
+[data-bg-theme='dark'] {
+  --ui-fg: #ffffff;
+  --ui-bg: rgba(255, 255, 255, 0.08);
+  --ui-border: rgba(255, 255, 255, 0.9);
+  --ui-placeholder: rgba(255, 255, 255, 0.6);
+  --ui-btn-bg: rgba(255, 255, 255, 0.15);
+  --ui-btn-hover-bg: rgba(255, 255, 255, 0.25);
+  --ui-label: #ffffff;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 16px;
+  -webkit-app-region: drag;
+}
+
+/* 交互元素取消拖拽 */
+button,
+input,
+.hover-menu,
+.todo-panel,
+.speech-bubble {
+  -webkit-app-region: no-drag;
+}
