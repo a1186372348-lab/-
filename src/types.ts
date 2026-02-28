@@ -1,7 +1,7 @@
 export type CloudExpression =
   | 'default'
   | 'happy'
-  | 'talking'
+  | 'thinking'
   | 'worried'
   | 'sleepy'
   | 'rainy'

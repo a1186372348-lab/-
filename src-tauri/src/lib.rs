@@ -15,6 +15,7 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::system::sample_pixel_color,
+            commands::system::get_cursor_position,
         ])
         .setup(|app| {
             db::init(app.handle())?;

@@ -1,39 +1,29 @@
 import { Todo } from '../types';
-import { updateReminderTime } from './db';
+import { updateReminderTime, fetchTodos } from './db';
 
-const COOLDOWN_MS = 60 * 60 * 1000; // 60分钟冷却
-
-function randomIntervalMs(): number {
-  // 30~90 分钟随机
-  const minutes = 30 + Math.random() * 60;
-  return minutes * 60 * 1000;
-}
-
-function shouldRemind(todo: Todo): boolean {
+function shouldRemind(todo: Todo, cooldownMs: number): boolean {
   if (!todo.last_reminded_at) return true;
   const age = Date.now() - new Date(todo.last_reminded_at).getTime();
-  return age >= COOLDOWN_MS;
+  return age >= cooldownMs;
 }
 
 export function startReminderService(
-  getTodos: () => Todo[],
-  onRemind: (todo: Todo) => void
+  onRemind: (todo: Todo) => void,
+  getIntervalMinutes: () => number
 ) {
   let timer: ReturnType<typeof setTimeout>;
 
   const schedule = () => {
+    const intervalMs = getIntervalMinutes() * 60 * 1000;
     timer = setTimeout(async () => {
-      const todos = getTodos();
+      const todos = await fetchTodos();
       const pending = todos.filter((t) => !t.is_completed);
 
       if (pending.length > 0) {
-        // 取最高优先级
         const priorityOrder = { high: 0, medium: 1, low: 2 };
         const target = pending
-          .filter(shouldRemind)
-          .sort(
-            (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
-          )[0];
+          .filter((t) => shouldRemind(t, intervalMs))
+          .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])[0];
 
         if (target) {
           await updateReminderTime(target.id);
@@ -41,8 +31,8 @@ export function startReminderService(
         }
       }
 
-      schedule(); // 重新排队
-    }, randomIntervalMs());
+      schedule();
+    }, intervalMs);
   };
 
   schedule();

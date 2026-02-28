@@ -77,6 +77,45 @@
   color: rgba(0, 0, 0, 0.35);
 }
 
+.sp-interval-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-left: 8px;
+}
+
+.sp-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #1a1a1a var(--val, 50%), #e0e0e0 var(--val, 50%));
+  outline: none;
+  cursor: pointer;
+}
+
+.sp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.sp-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.sp-slider-range {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.3);
+  margin-top: 2px;
+}
+
 .sp-footer {
   padding: 10px 14px 14px;
   display: flex;

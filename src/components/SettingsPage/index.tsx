@@ -7,6 +7,7 @@ export default function SettingsPage() {
   const [deepseekKey, setDeepseekKey] = useState('');
   const [weatherKey, setWeatherKey] = useState('');
   const [weatherCity, setWeatherCity] = useState('');
+  const [reminderInterval, setReminderInterval] = useState(60);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -15,6 +16,8 @@ export default function SettingsPage() {
       setDeepseekKey((await getSetting('deepseek_api_key')) ?? '');
       setWeatherKey((await getSetting('weather_api_key')) ?? '');
       setWeatherCity((await getSetting('weather_city')) ?? '');
+      const interval = await getSetting('reminder_interval_min');
+      setReminderInterval(interval ? parseInt(interval) : 60);
     };
     load();
   }, []);
@@ -23,17 +26,14 @@ export default function SettingsPage() {
     await setSetting('deepseek_api_key', deepseekKey.trim());
     await setSetting('weather_api_key', weatherKey.trim());
     await setSetting('weather_city', weatherCity.trim() || 'Beijing');
+    await setSetting('reminder_interval_min', String(reminderInterval));
     await emitTo('main', 'settings-changed');
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   return (
-    <div
-      className="sp-root"
-      onMouseEnter={() => emitTo('main', 'settings-mouse-enter')}
-      onMouseLeave={() => emitTo('main', 'settings-mouse-leave')}
-    >
+    <div className="sp-root">
       <div className="sp-titlebar">
         <span className="sp-title">⚙ 云宝设置</span>
       </div>
@@ -73,6 +73,27 @@ export default function SettingsPage() {
             onChange={(e) => setWeatherCity(e.target.value)}
           />
           <span className="sp-hint">英文城市名，如 Shanghai、Chengdu</span>
+        </div>
+
+        <div className="sp-field">
+          <label className="sp-label">
+            待办提醒间隔
+            <span className="sp-interval-value">{reminderInterval} 分钟</span>
+          </label>
+          <input
+            className="sp-slider"
+            type="range"
+            min={30}
+            max={120}
+            step={5}
+            value={reminderInterval}
+            style={{ '--val': `${((reminderInterval - 30) / 90) * 100}%` } as React.CSSProperties}
+            onChange={(e) => setReminderInterval(parseInt(e.target.value))}
+          />
+          <div className="sp-slider-range">
+            <span>30 分钟</span>
+            <span>120 分钟</span>
+          </div>
         </div>
       </div>
 

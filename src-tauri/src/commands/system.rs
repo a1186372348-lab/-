@@ -29,6 +29,29 @@ mod gdi {
     }
 }
 
+#[cfg(target_os = "windows")]
+mod cursor {
+    #[repr(C)]
+    struct POINT { x: i32, y: i32 }
+
+    #[link(name = "user32")]
+    extern "system" { fn GetCursorPos(point: *mut POINT) -> i32; }
+
+    pub fn get_pos() -> (i32, i32) {
+        let mut p = POINT { x: 0, y: 0 };
+        unsafe { GetCursorPos(&mut p); }
+        (p.x, p.y)
+    }
+}
+
+#[tauri::command]
+pub fn get_cursor_position() -> (i32, i32) {
+    #[cfg(target_os = "windows")]
+    return cursor::get_pos();
+    #[cfg(not(target_os = "windows"))]
+    (0, 0)
+}
+
 #[tauri::command]
 pub fn sample_pixel_color(x: i32, y: i32) -> (u8, u8, u8) {
     #[cfg(target_os = "windows")]

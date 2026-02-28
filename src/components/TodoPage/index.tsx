@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { emitTo } from '@tauri-apps/api/event';
+import { emit } from '@tauri-apps/api/event';
 import {
   getDb,
   fetchTodos,
@@ -160,10 +160,13 @@ export default function TodoPage() {
     const todo = todos.find((t) => t.id === id);
     if (!todo) return;
     const newCompleted = !todo.is_completed;
-    setTodos((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, is_completed: newCompleted } : t))
-    );
+    const updated = todos.map((t) => (t.id === id ? { ...t, is_completed: newCompleted } : t));
+    setTodos(updated);
     await updateTodoCompletion(id, newCompleted);
+    // 所有待办都完成时通知主窗口
+    if (updated.length > 0 && updated.every((t) => t.is_completed)) {
+      emit('all-todos-complete');
+    }
   }, [todos]);
 
   const handleDelete = useCallback(async (id: string) => {
@@ -183,8 +186,8 @@ export default function TodoPage() {
   return (
     <div
       className="tp-root"
-      onMouseEnter={() => emitTo('main', 'todo-mouse-enter')}
-      onMouseLeave={() => emitTo('main', 'todo-mouse-leave')}
+      onMouseEnter={() => emit('todo-mouse-enter')}
+      onMouseLeave={() => emit('todo-mouse-leave')}
     >
       {/* 标题栏（可拖拽） */}
       <div className="tp-titlebar">
