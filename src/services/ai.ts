@@ -4,12 +4,13 @@ import { getSetting } from './db';
 
 let client: OpenAI | null = null;
 
-async function getClient(): Promise<OpenAI> {
+async function getClient(): Promise<OpenAI | null> {
   if (!client) {
     const apiKey = await getSetting('deepseek_api_key');
+    if (!apiKey) return null;
     client = new OpenAI({
       baseURL: 'https://api.deepseek.com',
-      apiKey: apiKey ?? 'sk-placeholder',
+      apiKey,
       dangerouslyAllowBrowser: true,
     });
   }
@@ -42,6 +43,9 @@ const SYSTEM_PROMPT = `你是一只可爱的云朵桌面宠物助手，名字叫
 
 export async function processInput(userText: string): Promise<AiResponse> {
   const ai = await getClient();
+  if (!ai) {
+    return { intent: 'chat', reply: '请先在设置中填入 DeepSeek API Key，才能和我对话哦～' };
+  }
 
   const completion = await ai.chat.completions.create({
     model: 'deepseek-chat',

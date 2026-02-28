@@ -3,18 +3,18 @@ import './index.css';
 
 interface HoverMenuProps {
   visible: boolean;
-  onSelectTodo: () => void;
-  onSelectSettings: () => void;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
+  onTodoBtnEnter: () => void;
+  onTodoBtnLeave: () => void;
+  onSettingsBtnEnter: () => void;
+  onSettingsBtnLeave: () => void;
 }
 
 export default function HoverMenu({
   visible,
-  onSelectTodo,
-  onSelectSettings,
-  onMouseEnter,
-  onMouseLeave,
+  onTodoBtnEnter,
+  onTodoBtnLeave,
+  onSettingsBtnEnter,
+  onSettingsBtnLeave,
 }: HoverMenuProps) {
   return (
     <AnimatePresence>
@@ -25,13 +25,21 @@ export default function HoverMenu({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.8, y: 8 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
         >
-          <button className="menu-item" onClick={onSelectTodo} title="待办">
+          <button
+            className="menu-item"
+            onMouseEnter={onTodoBtnEnter}
+            onMouseLeave={onTodoBtnLeave}
+            title="待办"
+          >
             <span className="menu-icon">☑</span>
           </button>
-          <button className="menu-item" onClick={onSelectSettings} title="设置">
+          <button
+            className="menu-item"
+            onMouseEnter={onSettingsBtnEnter}
+            onMouseLeave={onSettingsBtnLeave}
+            title="设置"
+          >
             <span className="menu-icon">⚙</span>
           </button>
         </motion.div>

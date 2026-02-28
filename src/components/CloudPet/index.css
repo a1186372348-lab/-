@@ -13,14 +13,18 @@
   user-select: none;
 }
 
-.cloud-svg {
+.cloud-img {
   width: 190px;
   height: 140px;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+  display: block;
 }
 
 .rain-container {
   position: absolute;
-  bottom: -30px;
+  bottom: 0;
   left: 10px;
   width: 80%;
   height: 40px;

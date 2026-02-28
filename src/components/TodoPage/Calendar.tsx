@@ -1,6 +1,7 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Todo, Priority } from '../../types';
+import { fetchHistoryByDate, fetchHistoryDateKeys } from '../../services/db';
 import './Calendar.css';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
@@ -27,23 +28,24 @@ export default function Calendar({ todos }: Props) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [tooltipAnchor, setTooltipAnchor] = useState({ x: 0, y: 0 });
   const [popupBottom, setPopupBottom] = useState(0);
+  const [historyDateKeys, setHistoryDateKeys] = useState<Set<string>>(new Set());
+  const [hoveredTodos, setHoveredTodos] = useState<Todo[]>([]);
 
   const chipRef = useRef<HTMLButtonElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // 当日显示格式 "YY/M/D"
+  const todayKey = toLocalDateStr(today);
   const chipLabel = `${String(today.getFullYear()).slice(-2)}/${today.getMonth() + 1}/${today.getDate()}`;
 
-  // 按日期分组待办
-  const byDate = useMemo(() => {
-    const map: Record<string, Todo[]> = {};
-    for (const todo of todos) {
-      const key = toLocalDateStr(new Date(todo.created_at));
-      if (!map[key]) map[key] = [];
-      map[key].push(todo);
-    }
-    return map;
-  }, [todos]);
+  // 加载历史有任务的日期集合（用于显示小圆点）
+  useEffect(() => {
+    fetchHistoryDateKeys().then((keys) => setHistoryDateKeys(new Set(keys)));
+  }, [isOpen]);
+
+  // 今天的任务按日期分组（实时）
+  const todayTodos = useMemo(() => {
+    return todos.filter((t) => toLocalDateStr(new Date(t.created_at)) === todayKey);
+  }, [todos, todayKey]);
 
   // 生成格子
   const cells = useMemo(() => {
@@ -63,8 +65,6 @@ export default function Calendar({ todos }: Props) {
 
   const getKey = (day: number) =>
     `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-  const todayKey = toLocalDateStr(today);
 
   // 点击日期 chip 展开/收起日历
   const handleChipClick = () => {
@@ -90,8 +90,8 @@ export default function Calendar({ todos }: Props) {
     return () => document.removeEventListener('mousedown', handle);
   }, [isOpen]);
 
-  // 悬停日期格子
-  const handleEnter = (e: React.MouseEvent<HTMLDivElement>, day: number) => {
+  // 悬停日期格子：今天用实时 todos，历史日期从数据库查
+  const handleEnter = useCallback(async (e: React.MouseEvent<HTMLDivElement>, day: number) => {
     const key = getKey(day);
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltipAnchor({
@@ -99,9 +99,13 @@ export default function Calendar({ todos }: Props) {
       y: Math.round(rect.top - 6),
     });
     setHoveredKey(key);
-  };
-
-  const hoveredTodos = hoveredKey ? (byDate[hoveredKey] ?? []) : [];
+    if (key === todayKey) {
+      setHoveredTodos(todayTodos);
+    } else {
+      const history = await fetchHistoryByDate(key);
+      setHoveredTodos(history);
+    }
+  }, [todayKey, todayTodos]);
 
   const formatKey = (key: string) => {
     const [, m, d] = key.split('-');
@@ -175,7 +179,10 @@ export default function Calendar({ todos }: Props) {
               {cells.map((day, i) => {
                 if (day === null) return <div key={`e${i}`} className="cal-cell cal-cell--empty" />;
                 const key = getKey(day);
-                const count = byDate[key]?.length ?? 0;
+                // 今天：看实时 todos；历史日期：看 historyDateKeys
+                const hasTask = key === todayKey
+                  ? todayTodos.length > 0
+                  : historyDateKeys.has(key);
                 const isToday = key === todayKey;
                 const isHovered = key === hoveredKey;
                 return (
@@ -185,7 +192,7 @@ export default function Calendar({ todos }: Props) {
                     onMouseEnter={e => handleEnter(e, day)}
                   >
                     <span className="cal-day-num">{day}</span>
-                    {count > 0 && <span className="cal-task-dot" />}
+                    {hasTask && <span className="cal-task-dot" />}
                   </div>
                 );
               })}

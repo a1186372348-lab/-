@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "云朵助手",
+        "label": "main",
         "width": 240,
         "height": 300,
         "decorations": false,
@@ -22,6 +23,38 @@
         "center": true,
         "shadow": false,
         "skipTaskbar": true
+      },
+      {
+        "title": "云宝待办",
+        "label": "todo-manager",
+        "url": "/?page=todos",
+        "width": 360,
+        "height": 540,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "title": "云宝设置",
+        "label": "settings",
+        "url": "/?page=settings",
+        "width": 360,
+        "height": 310,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false,
+        "x": 0,
+        "y": 0
       }
     ],
     "security": {

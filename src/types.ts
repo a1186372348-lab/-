@@ -4,7 +4,9 @@ export type CloudExpression =
   | 'talking'
   | 'worried'
   | 'sleepy'
-  | 'rainy';
+  | 'rainy'
+  | 'sadly'
+  | 'proudly';
 
 export type WeatherCondition = 'sunny' | 'cloudy' | 'rainy';
 

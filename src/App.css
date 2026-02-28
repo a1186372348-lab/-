@@ -68,3 +68,11 @@ input,
 .speech-bubble {
   -webkit-app-region: no-drag;
 }
+
+/* 云朵 + 菜单的统一容器 */
+.pet-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}

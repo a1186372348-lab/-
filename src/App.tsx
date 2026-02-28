@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Howl } from 'howler';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
+import { resetClient } from './services/ai';
 import { useAppStore } from './store';
 import { getDb, fetchTodos, insertTodo } from './services/db';
 import { processInput } from './services/ai';
@@ -20,10 +22,53 @@ const thunderSound = new Howl({
   preload: false,
 });
 
-// 显示计时器：鼠标悬停云朵 800ms 后显示菜单
-// 隐藏计时器：鼠标离开云朵或菜单后 300ms 才隐藏，给用户足够时间移到菜单
+// 悬停计时器：鼠标进入容器 600ms 后显示菜单
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
-let hideTimer: ReturnType<typeof setTimeout> | null = null;
+// 待办窗口显示/隐藏计时器
+let todoShowTimer: ReturnType<typeof setTimeout> | null = null;
+let todoHideTimer: ReturnType<typeof setTimeout> | null = null;
+// 设置窗口显示/隐藏计时器
+let settingsShowTimer: ReturnType<typeof setTimeout> | null = null;
+let settingsHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function showTodoWindow() {
+  const todoWin = await WebviewWindow.getByLabel('todo-manager');
+  if (!todoWin) return;
+  const mainWin = getCurrentWindow();
+  const mainPos = await mainWin.outerPosition();
+  const sf = await mainWin.scaleFactor();
+  const todoWidth = 360, gap = 8;
+  await todoWin.setPosition(new LogicalPosition(mainPos.x / sf - todoWidth - gap, mainPos.y / sf));
+  await todoWin.show();
+}
+
+async function hideTodoWindow() {
+  const todoWin = await WebviewWindow.getByLabel('todo-manager');
+  if (!todoWin) return;
+  const visible = await todoWin.isVisible();
+  if (visible) await todoWin.hide();
+}
+
+async function showSettingsWindow() {
+  const settingsWin = await WebviewWindow.getByLabel('settings');
+  if (!settingsWin) return;
+  const mainWin = getCurrentWindow();
+  const mainPos = await mainWin.outerPosition();
+  const mainSize = await mainWin.outerSize();
+  const sf = await mainWin.scaleFactor();
+  const gap = 8;
+  await settingsWin.setPosition(
+    new LogicalPosition(mainPos.x / sf + mainSize.width / sf + gap, mainPos.y / sf)
+  );
+  await settingsWin.show();
+}
+
+async function hideSettingsWindow() {
+  const settingsWin = await WebviewWindow.getByLabel('settings');
+  if (!settingsWin) return;
+  const visible = await settingsWin.isVisible();
+  if (visible) await settingsWin.hide();
+}
 
 export default function App() {
   const {
@@ -57,6 +102,10 @@ export default function App() {
   useEffect(() => {
     let stopWeather: ReturnType<typeof setInterval>;
     let stopReminder: () => void;
+    let unlistenEnter: (() => void) | undefined;
+    let unlistenLeave: (() => void) | undefined;
+    let unlistenSettingsEnter: (() => void) | undefined;
+    let unlistenSettingsLeave: (() => void) | undefined;
 
     const init = async () => {
       await getDb();
@@ -78,6 +127,27 @@ export default function App() {
           setTimeout(() => setExpression('default'), 3000);
         }
       );
+
+      // 监听待办窗口鼠标事件，控制隐藏计时器
+      unlistenEnter = await listen('todo-mouse-enter', () => {
+        if (todoHideTimer) clearTimeout(todoHideTimer);
+      });
+      unlistenLeave = await listen('todo-mouse-leave', () => {
+        todoHideTimer = setTimeout(hideTodoWindow, 500);
+      });
+
+      // 监听设置窗口鼠标事件，控制隐藏计时器
+      unlistenSettingsEnter = await listen('settings-mouse-enter', () => {
+        if (settingsHideTimer) clearTimeout(settingsHideTimer);
+      });
+      unlistenSettingsLeave = await listen('settings-mouse-leave', () => {
+        settingsHideTimer = setTimeout(hideSettingsWindow, 500);
+      });
+
+      // 设置保存后重置 AI 客户端缓存
+      await listen('settings-changed', () => {
+        resetClient();
+      });
     };
 
     init();
@@ -87,6 +157,10 @@ export default function App() {
       if (stopWeather) clearInterval(stopWeather);
       if (stopReminder) stopReminder();
       stopColorSampler();
+      unlistenEnter?.();
+      unlistenLeave?.();
+      unlistenSettingsEnter?.();
+      unlistenSettingsLeave?.();
     };
   }, []);
 
@@ -115,112 +189,95 @@ export default function App() {
     }
   }, []);
 
-  const handleOpenTodoWindow = useCallback(async () => {
-    // 若窗口已存在则聚焦，否则新建
-    const existing = await WebviewWindow.getByLabel('todo-manager');
-    if (existing) {
-      await existing.setFocus();
-      return;
-    }
-
-    const mainWin = getCurrentWindow();
-    const mainPos = await mainWin.outerPosition(); // 物理像素
-    const sf = await mainWin.scaleFactor();
-
-    const todoWidth = 360;
-    const gap = 8;
-    // 紧靠主窗口左侧，顶部对齐
-    const todoX = mainPos.x / sf - todoWidth - gap;
-    const todoY = mainPos.y / sf;
-
-    new WebviewWindow('todo-manager', {
-      url: '/?page=todos',
-      title: '云宝待办',
-      width: todoWidth,
-      height: 540,
-      x: todoX,
-      y: todoY,
-      decorations: false,
-      transparent: true,
-      resizable: false,
-      alwaysOnTop: false,
-    });
-
-    // 取消旧的 move 监听（如有）
-    unlistenMoveRef.current?.();
-
-    // 监听主窗口移动，同步更新待办窗口位置
-    unlistenMoveRef.current = await mainWin.onMoved(async ({ payload: physPos }) => {
+  // 初始化：定位待办窗口到主窗口左侧，并监听主窗口移动同步位置
+  useEffect(() => {
+    const initTodoWindow = async () => {
       const todoWin = await WebviewWindow.getByLabel('todo-manager');
-      if (!todoWin) {
-        unlistenMoveRef.current?.();
-        unlistenMoveRef.current = null;
-        return;
-      }
+      if (!todoWin) return;
+
+      const mainWin = getCurrentWindow();
+      const mainPos = await mainWin.outerPosition();
+      const sf = await mainWin.scaleFactor();
+      const todoWidth = 360;
+      const gap = 8;
+
       await todoWin.setPosition(
-        new LogicalPosition(physPos.x / sf - todoWidth - gap, physPos.y / sf)
+        new LogicalPosition(mainPos.x / sf - todoWidth - gap, mainPos.y / sf)
       );
-    });
+
+      const unlisten = await mainWin.onMoved(async ({ payload: physPos }) => {
+        const win = await WebviewWindow.getByLabel('todo-manager');
+        if (!win) return;
+        await win.setPosition(
+          new LogicalPosition(physPos.x / sf - todoWidth - gap, physPos.y / sf)
+        );
+      });
+      unlistenMoveRef.current = unlisten;
+    };
+
+    initTodoWindow();
   }, []);
 
-  // 鼠标进入云朵：取消隐藏计时器，启动显示计时器（800ms）
-  const handleCloudMouseEnter = () => {
-    if (hideTimer) clearTimeout(hideTimer);
-    hoverTimer = setTimeout(() => setShowHoverMenu(true), 800);
+  const handleTodoBtnEnter = () => {
+    if (todoHideTimer) clearTimeout(todoHideTimer);
+    todoShowTimer = setTimeout(showTodoWindow, 500);
   };
 
-  // 鼠标离开云朵：取消显示计时器，启动隐藏计时器（300ms 缓冲，供用户移到菜单）
-  const handleCloudMouseLeave = () => {
+  const handleTodoBtnLeave = () => {
+    if (todoShowTimer) clearTimeout(todoShowTimer);
+    todoHideTimer = setTimeout(hideTodoWindow, 500);
+  };
+
+  const handleSettingsBtnEnter = () => {
+    if (settingsHideTimer) clearTimeout(settingsHideTimer);
+    settingsShowTimer = setTimeout(showSettingsWindow, 500);
+  };
+
+  const handleSettingsBtnLeave = () => {
+    if (settingsShowTimer) clearTimeout(settingsShowTimer);
+    settingsHideTimer = setTimeout(hideSettingsWindow, 500);
+  };
+
+  // 鼠标进入云朵+菜单容器：600ms 后显示菜单
+  const handlePetAreaEnter = () => {
     if (hoverTimer) clearTimeout(hoverTimer);
-    hideTimer = setTimeout(() => setShowHoverMenu(false), 300);
+    hoverTimer = setTimeout(() => setShowHoverMenu(true), 600);
   };
 
-  // 鼠标进入菜单：取消隐藏计时器，菜单保持显示
-  const handleMenuMouseEnter = () => {
-    if (hideTimer) clearTimeout(hideTimer);
-  };
-
-  // 鼠标离开菜单：隐藏菜单
-  const handleMenuMouseLeave = () => {
-    setShowHoverMenu(false);
-  };
-
-  // 安全兜底：鼠标离开整个窗口时清理
-  const handleAppMouseLeave = () => {
+  // 鼠标离开云朵+菜单容器：延迟 150ms 隐藏，确保按钮 click 事件能先触发
+  const handlePetAreaLeave = () => {
     if (hoverTimer) clearTimeout(hoverTimer);
-    if (hideTimer) clearTimeout(hideTimer);
-    setShowHoverMenu(false);
+    hoverTimer = setTimeout(() => setShowHoverMenu(false), 150);
   };
 
   return (
-    <div className="app" onMouseLeave={handleAppMouseLeave}>
+    <div className="app">
       <SpeechBubble
         visible={speechBubble.visible}
         text={speechBubble.text}
         onClose={hideSpeech}
       />
 
-      <HoverMenu
-        visible={showHoverMenu}
-        onSelectTodo={() => {
-          handleOpenTodoWindow();
-          setShowHoverMenu(false);
-        }}
-        onSelectSettings={() => {
-          showSpeech('设置功能即将到来～');
-          setShowHoverMenu(false);
-        }}
-        onMouseEnter={handleMenuMouseEnter}
-        onMouseLeave={handleMenuMouseLeave}
-      />
+      {/* 云朵 + 菜单共用一个容器，统一处理 enter/leave */}
+      <div
+        className="pet-area"
+        onMouseEnter={handlePetAreaEnter}
+        onMouseLeave={handlePetAreaLeave}
+      >
+        <HoverMenu
+          visible={showHoverMenu}
+          onTodoBtnEnter={handleTodoBtnEnter}
+          onTodoBtnLeave={handleTodoBtnLeave}
+          onSettingsBtnEnter={handleSettingsBtnEnter}
+          onSettingsBtnLeave={handleSettingsBtnLeave}
+        />
 
-      <CloudPet
-        expression={expression}
-        weather={weather}
-        isProcessing={isProcessing}
-        onMouseEnter={handleCloudMouseEnter}
-        onMouseLeave={handleCloudMouseLeave}
-      />
+        <CloudPet
+          expression={expression}
+          weather={weather}
+          isProcessing={isProcessing}
+        />
+      </div>
 
       <InputBar onSend={handleSend} isProcessing={isProcessing} />
     </div>

@@ -1,0 +1,103 @@
+.sp-root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 14px;
+  overflow: hidden;
+  color: #1a1a1a;
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+.sp-titlebar {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.sp-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.3px;
+}
+
+.sp-body {
+  flex: 1;
+  padding: 16px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.sp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sp-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.55);
+  letter-spacing: 0.2px;
+}
+
+.sp-input {
+  background: #f5f5f5;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 7px;
+  color: #1a1a1a;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sp-input::placeholder {
+  color: rgba(0, 0, 0, 0.28);
+}
+
+.sp-input:focus {
+  border-color: rgba(0, 0, 0, 0.35);
+  background: #fff;
+}
+
+.sp-hint {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.sp-footer {
+  padding: 10px 14px 14px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.sp-save-btn {
+  background: #1a1a1a;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 24px;
+  cursor: pointer;
+  transition: background 0.15s;
+  min-width: 72px;
+}
+
+.sp-save-btn:hover {
+  background: #333;
+}

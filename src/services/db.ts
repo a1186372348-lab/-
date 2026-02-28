@@ -16,6 +16,16 @@ const MIGRATIONS = `
     last_reminded_at TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS todo_history (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'medium',
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    completed_at TEXT,
+    date_key TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -35,15 +45,6 @@ export async function getDb(): Promise<Database> {
     // 建表
     for (const stmt of MIGRATIONS.split(';').filter((s) => s.trim())) {
       await db.execute(stmt + ';');
-    }
-    // 写入 DeepSeek API Key（仅在未设置时写入，避免覆盖用户自定义）
-    const existing = await db.select<{ value: string }[]>(
-      "SELECT value FROM settings WHERE key = 'deepseek_api_key'"
-    );
-    if (!existing[0]?.value) {
-      await db.execute(
-        "INSERT INTO settings (key, value) VALUES ('deepseek_api_key', 'sk-3d3490b4bdfa4c209bcf3f4f9b5625cc') ON CONFLICT(key) DO UPDATE SET value = 'sk-3d3490b4bdfa4c209bcf3f4f9b5625cc'"
-      );
     }
   }
   return db;
@@ -101,6 +102,68 @@ export async function updateReminderTime(id: string): Promise<void> {
     'UPDATE todos SET last_reminded_at = $1 WHERE id = $2',
     [new Date().toISOString(), id]
   );
+}
+
+// ── 每日清理：归档后删除过期待办 ──────────────────────────
+export async function clearOutdatedTodos(): Promise<void> {
+  const database = await getDb();
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setHours(5, 0, 0, 0);
+
+  let todayStart: Date;
+  if (now < cutoff) {
+    todayStart = new Date(now);
+    todayStart.setDate(todayStart.getDate() - 1);
+    todayStart.setHours(5, 0, 0, 0);
+  } else {
+    todayStart = cutoff;
+  }
+
+  // 查询所有过期任务
+  const outdated = await database.select<any[]>(
+    'SELECT * FROM todos WHERE created_at < $1',
+    [todayStart.toISOString()]
+  );
+
+  // 逐条归档到 todo_history（跳过已归档的）
+  for (const row of outdated) {
+    const dateKey = row.created_at.slice(0, 10); // "YYYY-MM-DD"
+    await database.execute(
+      `INSERT OR IGNORE INTO todo_history (id, title, priority, is_completed, created_at, completed_at, date_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [row.id, row.title, row.priority, row.is_completed, row.created_at, row.completed_at ?? null, dateKey]
+    );
+  }
+
+  // 归档完成后删除过期任务
+  await database.execute(
+    'DELETE FROM todos WHERE created_at < $1',
+    [todayStart.toISOString()]
+  );
+}
+
+// ── 历史记录：按日期查询 ───────────────────────────────────
+export async function fetchHistoryByDate(dateKey: string): Promise<Todo[]> {
+  const database = await getDb();
+  const rows = await database.select<any[]>(
+    'SELECT * FROM todo_history WHERE date_key = $1 ORDER BY CASE priority WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END',
+    [dateKey]
+  );
+  return rows.map((r) => ({
+    ...r,
+    is_completed: Boolean(r.is_completed),
+    last_reminded_at: null,
+  }));
+}
+
+// ── 历史记录：查询所有有任务的日期 ────────────────────────
+export async function fetchHistoryDateKeys(): Promise<string[]> {
+  const database = await getDb();
+  const rows = await database.select<{ date_key: string }[]>(
+    'SELECT DISTINCT date_key FROM todo_history'
+  );
+  return rows.map((r) => r.date_key);
 }
 
 export async function deleteTodo(id: string): Promise<void> {

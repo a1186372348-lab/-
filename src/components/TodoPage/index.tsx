@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { emitTo } from '@tauri-apps/api/event';
 import {
   getDb,
   fetchTodos,
@@ -8,6 +8,7 @@ import {
   updateTodoCompletion,
   deleteTodo as dbDeleteTodo,
   updateTodoTitle as dbUpdateTodoTitle,
+  clearOutdatedTodos,
 } from '../../services/db';
 import { Todo, Priority } from '../../types';
 import Calendar from './Calendar';
@@ -118,16 +119,26 @@ export default function TodoPage() {
   useEffect(() => {
     const init = async () => {
       await getDb();
+      // 启动时清理过期任务（非今天 05:00 后创建的）
+      await clearOutdatedTodos();
       const loaded = await fetchTodos();
       setTodos(loaded);
       setIsLoading(false);
     };
     init();
-  }, []);
 
-  const handleClose = async () => {
-    await getCurrentWindow().close();
-  };
+    // 每分钟检查一次是否跨过了今天 05:00，到点后自动清理
+    const timer = setInterval(async () => {
+      const now = new Date();
+      if (now.getHours() === 5 && now.getMinutes() === 0) {
+        await clearOutdatedTodos();
+        const loaded = await fetchTodos();
+        setTodos(loaded);
+      }
+    }, 60_000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handleAdd = useCallback(async () => {
     const title = addTitle.trim();
@@ -170,12 +181,15 @@ export default function TodoPage() {
   const completedCount = todos.filter((t) => t.is_completed).length;
 
   return (
-    <div className="tp-root">
+    <div
+      className="tp-root"
+      onMouseEnter={() => emitTo('main', 'todo-mouse-enter')}
+      onMouseLeave={() => emitTo('main', 'todo-mouse-leave')}
+    >
       {/* 标题栏（可拖拽） */}
       <div className="tp-titlebar">
         <span className="tp-title">✿ 云宝待办</span>
         <span className="tp-count">{completedCount}/{todos.length}</span>
-        <button className="tp-close-btn" onClick={handleClose}>✕</button>
       </div>
 
       {/* 快速添加 */}
