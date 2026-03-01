@@ -1,8 +1,8 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Howl } from 'howler';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
-import { listen } from '@tauri-apps/api/event';
+import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { resetClient } from './services/ai';
 import { useAppStore } from './store';
@@ -38,6 +38,9 @@ let settingsHideTimer: ReturnType<typeof setTimeout> | null = null;
 // 光标轮询：记录子窗口可见状态和物理边界
 let todoVisible = false;
 let settingsVisible = false;
+
+// 低干扰豁免：任意交互发生时调用，通知组件重新计算透明度
+let onInteractionChange: (() => void) | null = null;
 type Bounds = { x: number; y: number; w: number; h: number };
 let todoBounds: Bounds | null = null;
 let settingsBounds: Bounds | null = null;
@@ -96,6 +99,7 @@ async function showTodoWindow() {
   const size = await todoWin.outerSize();
   todoBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
   todoVisible = true;
+  onInteractionChange?.();
   startCursorPoll();
 }
 
@@ -106,6 +110,7 @@ async function hideTodoWindow() {
   if (visible) await todoWin.hide();
   todoVisible = false;
   todoBounds = null;
+  onInteractionChange?.();
   if (!settingsVisible) stopCursorPoll();
 }
 
@@ -125,6 +130,7 @@ async function showSettingsWindow() {
   const size = await settingsWin.outerSize();
   settingsBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
   settingsVisible = true;
+  onInteractionChange?.();
   startCursorPoll();
 }
 
@@ -135,6 +141,7 @@ async function hideSettingsWindow() {
   if (visible) await settingsWin.hide();
   settingsVisible = false;
   settingsBounds = null;
+  onInteractionChange?.();
   if (!todoVisible) stopCursorPoll();
 }
 
@@ -158,6 +165,36 @@ export default function App() {
   const reminderIntervalRef = useRef<number>(60);
 
   const unlistenMoveRef = useRef<(() => void) | null>(null);
+
+  // 低干扰模式：0=正常，1=半透（最大化应用），2=隐藏（无边框全屏游戏）
+  const disturbModeRef = useRef<0 | 1 | 2>(0);
+  const isPetHoveredRef = useRef(false);
+  const isInputFocusedRef = useRef(false);
+  const [disturbMode, setDisturbMode] = useState<0 | 1 | 2>(0);
+
+  const applyDim = useCallback(() => {
+    // 任意交互时恢复正常：悬停云朵、输入框聚焦、待办窗口打开、设置窗口打开
+    const isActive = isPetHoveredRef.current
+      || isInputFocusedRef.current
+      || todoVisible
+      || settingsVisible;
+    setDisturbMode(isActive ? 0 : disturbModeRef.current);
+  }, []);
+
+  // 注册到模块级回调，供 show/hideTodoWindow 等函数调用
+  useEffect(() => {
+    onInteractionChange = applyDim;
+    return () => { onInteractionChange = null; };
+  }, [applyDim]);
+
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      const mode = await invoke<0 | 1 | 2>('get_fullscreen_mode');
+      disturbModeRef.current = mode;
+      applyDim();
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
 
   // 组件卸载时取消主窗口 move 监听
   useEffect(() => {
@@ -227,19 +264,29 @@ export default function App() {
     setExpression('thinking');
 
     try {
-      const response = await processInput(text);
+      const currentTodos = useAppStore.getState().todos;
+      const response = await processInput(text, currentTodos);
+      console.log('[AI response]', JSON.stringify(response));
 
       if (response.intent === 'create_todo' && response.todo) {
         const newTodo = await insertTodo(response.todo.title, response.todo.priority);
         addTodo(newTodo);
+        console.log('[Todo created]', newTodo);
         setExpression('happy');
         showSpeech(response.reply);
+        setTimeout(() => setExpression('default'), 2000);
+      } else if (response.intent === 'create_todo' && !response.todo) {
+        // AI 意图是创建任务但没返回 todo 字段——提示用户重试
+        console.warn('[AI] create_todo intent but no todo field:', response);
+        setExpression('worried');
+        showSpeech('哎，我好像没记下来，能再说一遍吗？');
         setTimeout(() => setExpression('default'), 2000);
       } else {
         setExpression('default');
         showSpeech(response.reply);
       }
-    } catch {
+    } catch (e) {
+      console.error('[handleSend error]', e);
       showSpeech('哎呀，出了点问题，稍后再试试～');
       setExpression('default');
     } finally {
@@ -329,8 +376,20 @@ export default function App() {
     return () => { if (idleTimer) clearTimeout(idleTimer); };
   }, []);
 
+  const handleInputFocus = useCallback(() => {
+    isInputFocusedRef.current = true;
+    applyDim();
+  }, [applyDim]);
+
+  const handleInputBlur = useCallback(() => {
+    isInputFocusedRef.current = false;
+    applyDim();
+  }, [applyDim]);
+
   // 鼠标进入云朵+菜单容器：600ms 后显示菜单
   const handlePetAreaEnter = () => {
+    isPetHoveredRef.current = true;
+    applyDim();
     resetIdle();
     if (hoverTimer) clearTimeout(hoverTimer);
     hoverTimer = setTimeout(() => setShowHoverMenu(true), 600);
@@ -338,12 +397,18 @@ export default function App() {
 
   // 鼠标离开云朵+菜单容器：延迟 150ms 隐藏
   const handlePetAreaLeave = () => {
+    isPetHoveredRef.current = false;
+    applyDim();
     if (hoverTimer) clearTimeout(hoverTimer);
     hoverTimer = setTimeout(() => setShowHoverMenu(false), 150);
   };
 
   return (
-    <div className="app">
+    <div className="app" style={{
+      opacity: disturbMode === 2 ? 0 : disturbMode === 1 ? 0.1 : 1,
+      transition: 'opacity 0.4s ease',
+      pointerEvents: disturbMode === 2 ? 'none' : 'auto',
+    }}>
       <SpeechBubble
         visible={speechBubble.visible}
         text={speechBubble.text}
@@ -371,7 +436,12 @@ export default function App() {
         />
       </div>
 
-      <InputBar onSend={handleSend} isProcessing={isProcessing} />
+      <InputBar
+        onSend={handleSend}
+        isProcessing={isProcessing}
+        onInputFocus={handleInputFocus}
+        onInputBlur={handleInputBlur}
+      />
     </div>
   );
 }

@@ -5,9 +5,11 @@ import './index.css';
 interface InputBarProps {
   onSend: (text: string) => void;
   isProcessing: boolean;
+  onInputFocus?: () => void;
+  onInputBlur?: () => void;
 }
 
-export default function InputBar({ onSend, isProcessing }: InputBarProps) {
+export default function InputBar({ onSend, isProcessing, onInputFocus, onInputBlur }: InputBarProps) {
   const [value, setValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +45,8 @@ export default function InputBar({ onSend, isProcessing }: InputBarProps) {
         onKeyDown={handleKeyDown}
         placeholder={isProcessing ? '思考中...' : '说点什么吧～'}
         disabled={isProcessing}
+        onFocus={onInputFocus}
+        onBlur={onInputBlur}
       />
       <motion.button
         className={`mic-btn ${isRecording ? 'mic-btn--recording' : ''}`}

@@ -16,6 +16,7 @@ pub fn run() {
             commands::settings::set_setting,
             commands::system::sample_pixel_color,
             commands::system::get_cursor_position,
+            commands::system::get_fullscreen_mode,
         ])
         .setup(|app| {
             db::init(app.handle())?;

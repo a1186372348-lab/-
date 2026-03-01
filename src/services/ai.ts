@@ -1,8 +1,11 @@
 import OpenAI from 'openai';
-import { AiResponse } from '../types';
+import { AiResponse, Todo } from '../types';
 import { getSetting } from './db';
 
 let client: OpenAI | null = null;
+
+// 多轮对话历史（最多保留最近 6 条，即 3 轮问答）
+const history: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
 async function getClient(): Promise<OpenAI | null> {
   if (!client) {
@@ -17,9 +20,10 @@ async function getClient(): Promise<OpenAI | null> {
   return client;
 }
 
-// 重置客户端（修改 API Key 后调用）
+// 重置客户端（修改 API Key 后调用），同时清空对话历史
 export function resetClient() {
   client = null;
+  history.length = 0;
 }
 
 const SYSTEM_PROMPT = `你是一只可爱的云朵桌面宠物助手，名字叫"云宝"。你的任务是：
@@ -41,17 +45,32 @@ const SYSTEM_PROMPT = `你是一只可爱的云朵桌面宠物助手，名字叫
 - 含"重要"、"尽快"、"这周"→ medium
 - 其他 → low`;
 
-export async function processInput(userText: string): Promise<AiResponse> {
+export async function processInput(userText: string, currentTodos?: Todo[]): Promise<AiResponse> {
   const ai = await getClient();
   if (!ai) {
     return { intent: 'chat', reply: '请先在设置中填入 DeepSeek API Key，才能和我对话哦～' };
   }
 
+  // 将当前待办数据附加到系统提示，供 query_todo 意图使用
+  let systemPrompt = SYSTEM_PROMPT;
+  if (currentTodos && currentTodos.length > 0) {
+    const incomplete = currentTodos.filter(t => !t.is_completed);
+    const complete = currentTodos.filter(t => t.is_completed);
+    const priorityLabel: Record<string, string> = { high: '高', medium: '中', low: '低' };
+    systemPrompt += `\n\n当前待办（用户询问任务时请基于此回答）：
+未完成（${incomplete.length}项）：${incomplete.length ? incomplete.map(t => `[${priorityLabel[t.priority]}]${t.title}`).join('、') : '无'}
+已完成（${complete.length}项）：${complete.length ? complete.map(t => t.title).join('、') : '无'}`;
+  }
+
+  // 加入历史，限制最多 6 条（3 轮）
+  history.push({ role: 'user', content: userText });
+  if (history.length > 6) history.splice(0, history.length - 6);
+
   const completion = await ai.chat.completions.create({
     model: 'deepseek-chat',
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userText },
+      { role: 'system', content: systemPrompt },
+      ...history,
     ],
     temperature: 0.7,
     max_tokens: 200,
@@ -62,12 +81,16 @@ export async function processInput(userText: string): Promise<AiResponse> {
 
   try {
     const parsed = JSON.parse(raw);
-    return {
+    const result: AiResponse = {
       intent: parsed.intent ?? 'chat',
       reply: parsed.reply ?? '嗯嗯，我听到啦～',
       todo: parsed.todo,
     };
+    history.push({ role: 'assistant', content: raw });
+    return result;
   } catch {
+    // 解析失败时撤销刚加入的用户消息，避免污染历史
+    history.pop();
     return {
       intent: 'chat',
       reply: '哎呀，我有点没听清，再说一遍？',

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { emit } from '@tauri-apps/api/event';
 import {
@@ -111,10 +111,19 @@ function TodoItem({
 
 export default function TodoPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addTitle, setAddTitle] = useState('');
   const [addPriority, setAddPriority] = useState<Priority>('medium');
   const [isLoading, setIsLoading] = useState(true);
+
+  const PRIORITY_ORDER_DESC = { high: 0, medium: 1, low: 2 } as const;
+  const PRIORITY_ORDER_ASC  = { high: 2, medium: 1, low: 0 } as const;
+
+  const sortedTodos = useMemo(() => {
+    const order = sortOrder === 'desc' ? PRIORITY_ORDER_DESC : PRIORITY_ORDER_ASC;
+    return [...todos].sort((a, b) => order[a.priority] - order[b.priority]);
+  }, [todos, sortOrder]);
 
   useEffect(() => {
     const init = async () => {
@@ -137,18 +146,32 @@ export default function TodoPage() {
       }
     }, 60_000);
 
-    return () => clearInterval(timer);
+    // 每 1 秒轮询一次，同步 AI 在主窗口创建的任务
+    const syncTimer = setInterval(async () => {
+      try {
+        const loaded = await fetchTodos();
+        console.log('[TodoPage poll]', loaded.length, 'todos:', loaded.map(t => t.title));
+        setTodos(prev => {
+          const prevSig = prev.map(t => t.id + t.is_completed).join(',');
+          const newSig  = loaded.map(t => t.id + t.is_completed).join(',');
+          return prevSig === newSig ? prev : loaded;
+        });
+      } catch (e) {
+        console.error('[TodoPage poll error]', e);
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(syncTimer);
+    };
   }, []);
 
   const handleAdd = useCallback(async () => {
     const title = addTitle.trim();
     if (!title) return;
     const newTodo = await insertTodo(title, addPriority);
-    setTodos((prev) => {
-      const updated = [...prev, newTodo];
-      const order = { high: 0, medium: 1, low: 2 };
-      return updated.sort((a, b) => order[a.priority] - order[b.priority]);
-    });
+    setTodos((prev) => [...prev, newTodo]);
     setAddTitle('');
   }, [addTitle, addPriority]);
 
@@ -192,7 +215,6 @@ export default function TodoPage() {
       {/* 标题栏（可拖拽） */}
       <div className="tp-titlebar">
         <span className="tp-title">✿ 云宝待办</span>
-        <span className="tp-count">{completedCount}/{todos.length}</span>
       </div>
 
       {/* 快速添加 */}
@@ -222,7 +244,7 @@ export default function TodoPage() {
           <p className="tp-empty">加载中...</p>
         ) : (
           <AnimatePresence initial={false}>
-            {todos.length === 0 ? (
+            {sortedTodos.length === 0 ? (
               <motion.p
                 className="tp-empty"
                 initial={{ opacity: 0 }}
@@ -231,7 +253,7 @@ export default function TodoPage() {
                 暂无待办，快来添加一个吧～
               </motion.p>
             ) : (
-              todos.map((todo) => (
+              sortedTodos.map((todo) => (
                 <TodoItem
                   key={todo.id}
                   todo={todo}
@@ -246,6 +268,18 @@ export default function TodoPage() {
             )}
           </AnimatePresence>
         )}
+      </div>
+
+      {/* 底部：排序切换 + 完成进度 */}
+      <div className="tp-footer">
+        <button
+          className="tp-sort-btn"
+          onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+          title="切换排序"
+        >
+          {sortOrder === 'desc' ? '高 → 低 ↕' : '低 → 高 ↕'}
+        </button>
+        <span className="tp-footer-count">完成 {completedCount}/{todos.length}</span>
       </div>
 
       {/* 日历：悬停日期查看当日任务 */}

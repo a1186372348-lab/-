@@ -320,6 +320,40 @@
 
 .tp-edit-input:focus { border-bottom-color: #1a1a1a; }
 
+/* ── 底部 footer ── */
+.tp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.tp-sort-btn {
+  background: none;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 11px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+
+.tp-sort-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.28);
+  color: #1a1a1a;
+}
+
+.tp-footer-count {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.4);
+}
+
 /* ── Keyframe 动画 ── */
 @keyframes tp-move {
   50%  { padding-left: 8px; padding-right: 0; }
