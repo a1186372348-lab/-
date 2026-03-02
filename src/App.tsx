@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Howl } from 'howler';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
-import { listen, emit } from '@tauri-apps/api/event';
+import { getCurrentWindow, LogicalPosition, currentMonitor } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { resetClient } from './services/ai';
 import { useAppStore } from './store';
@@ -11,6 +11,7 @@ import { processInput } from './services/ai';
 import { startWeatherSync } from './services/weather';
 import { startReminderService } from './services/reminder';
 import { startColorSampler, stopColorSampler } from './services/colorSampler';
+import { startTimeCycleService } from './services/timeCycle';
 import CloudPet from './components/CloudPet';
 import InputBar from './components/InputBar';
 import HoverMenu from './components/HoverMenu';
@@ -34,6 +35,8 @@ let todoShowTimer: ReturnType<typeof setTimeout> | null = null;
 let todoHideTimer: ReturnType<typeof setTimeout> | null = null;
 let settingsShowTimer: ReturnType<typeof setTimeout> | null = null;
 let settingsHideTimer: ReturnType<typeof setTimeout> | null = null;
+let focusShowTimer: ReturnType<typeof setTimeout> | null = null;
+let focusHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 // 光标轮询：记录子窗口可见状态和物理边界
 let todoVisible = false;
@@ -114,8 +117,7 @@ async function hideTodoWindow() {
   if (!settingsVisible) stopCursorPoll();
 }
 
-async function showSettingsWindow() {
-  const settingsWin = await WebviewWindow.getByLabel('settings');
+async function showSettingsWindow() {  const settingsWin = await WebviewWindow.getByLabel('settings');
   if (!settingsWin) return;
   const mainWin = getCurrentWindow();
   const mainPos = await mainWin.outerPosition();
@@ -145,6 +147,28 @@ async function hideSettingsWindow() {
   if (!todoVisible) stopCursorPoll();
 }
 
+async function showFocusWindow() {
+  const focusWin = await WebviewWindow.getByLabel('focus');
+  if (!focusWin) return;
+  const mainWin = getCurrentWindow();
+  const mainPos = await mainWin.outerPosition();
+  const mainSize = await mainWin.outerSize();
+  const sf = await mainWin.scaleFactor();
+  const focusWidth = 240, focusHeight = 320, gap = 8;
+  // 显示在主窗口正上方居中
+  const lx = mainPos.x / sf + mainSize.width / sf / 2 - focusWidth / 2;
+  const ly = mainPos.y / sf - focusHeight - gap + 40;
+  await focusWin.setPosition(new LogicalPosition(lx, ly));
+  await focusWin.show();
+}
+
+async function hideFocusWindow() {
+  const focusWin = await WebviewWindow.getByLabel('focus');
+  if (!focusWin) return;
+  const visible = await focusWin.isVisible();
+  if (visible) await focusWin.hide();
+}
+
 export default function App() {
   const {
     expression,
@@ -163,6 +187,7 @@ export default function App() {
   } = useAppStore();
 
   const reminderIntervalRef = useRef<number>(60);
+
 
   const unlistenMoveRef = useRef<(() => void) | null>(null);
 
@@ -205,6 +230,7 @@ export default function App() {
   useEffect(() => {
     let stopWeather: ReturnType<typeof setInterval>;
     let stopReminder: () => void;
+    let stopTimeCycle: () => void;
 
     const init = async () => {
       // 确保主窗口获得焦点，否则透明窗口在 Windows 上不会收到鼠标悬停事件
@@ -234,6 +260,12 @@ export default function App() {
         () => reminderIntervalRef.current
       );
 
+      // 时间联动：按时段切换表情和气泡
+      stopTimeCycle = startTimeCycleService((period) => {
+        setExpression(period.expression);
+        if (period.greeting) showSpeech(period.greeting, 6000);
+      });
+
       // 设置保存后重置 AI 客户端缓存并更新提醒间隔
       await listen('settings-changed', async () => {
         resetClient();
@@ -246,6 +278,23 @@ export default function App() {
         setExpression('proudly');
         setTimeout(() => setExpression('default'), 3000);
       });
+
+      await listen<{ phase: string; remainSecs: number }>('focus-phase-change', ({ payload }) => {
+        const next = payload.phase as 'focus' | 'rest';
+        if (next === 'rest') {
+          showSpeech('专注结束！休息一下吧 🎉', 5000);
+          setExpression('happy');
+          setTimeout(() => setExpression('default'), 2000);
+        } else {
+          showSpeech('休息结束，继续专注！加油 💪', 4000);
+        }
+      });
+      await listen('focus-mouse-enter', () => {
+        if (focusHideTimer) clearTimeout(focusHideTimer);
+      });
+      await listen('focus-mouse-leave', () => {
+        focusHideTimer = setTimeout(hideFocusWindow, 500);
+      });
     };
 
     init();
@@ -254,6 +303,7 @@ export default function App() {
     return () => {
       if (stopWeather) clearInterval(stopWeather);
       if (stopReminder) stopReminder();
+      if (stopTimeCycle) stopTimeCycle();
       stopColorSampler();
     };
   }, []);
@@ -296,6 +346,65 @@ export default function App() {
 
   // 初始化：定位子窗口位置，监听主窗口移动同步位置并更新边界缓存
   useEffect(() => {
+    let snapTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // 拖拽停止后吸附到最近屏幕边缘
+    async function snapToEdge() {
+      const mainWin = getCurrentWindow();
+      const pos = await mainWin.outerPosition();
+      const size = await mainWin.outerSize();
+      const sf = await mainWin.scaleFactor();
+      const screen = await currentMonitor();
+      if (!screen) return;
+
+      const sw = screen.size.width;
+      const sh = screen.size.height;
+      const sx = screen.position.x;
+      const sy = screen.position.y;
+      const ww = size.width;
+      const wh = size.height;
+
+      // 当前逻辑位置
+      const lx = pos.x / sf;
+      const ly = pos.y / sf;
+      const lw = ww / sf;
+      const lh = wh / sf;
+      const lsw = sw / sf;
+      const lsh = sh / sf;
+      const lsx = sx / sf;
+      const lsy = sy / sf;
+
+      // 到四条边的距离
+      const distLeft   = pos.x - sx;
+      const distRight  = (sx + sw) - (pos.x + ww);
+      const distTop    = pos.y - sy;
+      const distBottom = (sy + sh) - (pos.y + wh);
+
+      const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+      const SNAP_THRESHOLD = 200 * sf; // 物理像素，距离边缘 200px 内才吸附
+
+      let newLx = lx;
+      let newLy = ly;
+
+      if (minDist < SNAP_THRESHOLD) {
+        if (minDist === distLeft)   newLx = lsx;
+        if (minDist === distRight)  newLx = lsx + lsw - lw;
+        if (minDist === distTop)    newLy = lsy;
+        if (minDist === distBottom) newLy = lsy + lsh - lh;
+      }
+
+      if (newLx !== lx || newLy !== ly) {
+        await mainWin.setPosition(new LogicalPosition(newLx, newLy));
+        // 子窗口跟随
+        const todoWidth = 306, gap = 8;
+        const tw = await WebviewWindow.getByLabel('todo-manager');
+        if (tw) await tw.setPosition(new LogicalPosition(newLx - todoWidth - gap, newLy));
+        const swWin = await WebviewWindow.getByLabel('settings');
+        const mSize = await mainWin.outerSize();
+        if (swWin) await swWin.setPosition(new LogicalPosition(newLx + mSize.width / sf + gap, newLy));
+      }
+    }
+
     const initWindows = async () => {
       const mainWin = getCurrentWindow();
       const mainPos = await mainWin.outerPosition();
@@ -311,6 +420,7 @@ export default function App() {
       }
 
       const unlisten = await mainWin.onMoved(async ({ payload: physPos }) => {
+        // 子窗口实时跟随
         const tw = await WebviewWindow.getByLabel('todo-manager');
         if (tw) {
           await tw.setPosition(
@@ -333,11 +443,19 @@ export default function App() {
             settingsBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
           }
         }
+
+        // 防抖：停止移动 400ms 后执行吸附
+        if (snapTimer) clearTimeout(snapTimer);
+        snapTimer = setTimeout(snapToEdge, 400);
       });
       unlistenMoveRef.current = unlisten;
     };
 
     initWindows();
+
+    return () => {
+      if (snapTimer) clearTimeout(snapTimer);
+    };
   }, []);
 
   const handleTodoBtnEnter = () => {
@@ -348,6 +466,16 @@ export default function App() {
   const handleTodoBtnLeave = () => {
     if (todoShowTimer) clearTimeout(todoShowTimer);
     todoHideTimer = setTimeout(hideTodoWindow, 500);
+  };
+
+  const handleFocusBtnEnter = () => {
+    if (focusHideTimer) clearTimeout(focusHideTimer);
+    focusShowTimer = setTimeout(showFocusWindow, 200);
+  };
+
+  const handleFocusBtnLeave = () => {
+    if (focusShowTimer) clearTimeout(focusShowTimer);
+    focusHideTimer = setTimeout(hideFocusWindow, 500);
   };
 
   const handleSettingsBtnEnter = () => {
@@ -425,15 +553,19 @@ export default function App() {
           visible={showHoverMenu}
           onTodoBtnEnter={handleTodoBtnEnter}
           onTodoBtnLeave={handleTodoBtnLeave}
+          onFocusBtnEnter={handleFocusBtnEnter}
+          onFocusBtnLeave={handleFocusBtnLeave}
           onSettingsBtnEnter={handleSettingsBtnEnter}
           onSettingsBtnLeave={handleSettingsBtnLeave}
         />
 
-        <CloudPet
-          expression={expression}
-          weather={weather}
-          isProcessing={isProcessing}
-        />
+        <div style={{ position: 'relative' }}>
+          <CloudPet
+            expression={expression}
+            weather={weather}
+            isProcessing={isProcessing}
+          />
+        </div>
       </div>
 
       <InputBar

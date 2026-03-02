@@ -55,6 +55,22 @@
         "shadow": false,
         "x": 0,
         "y": 0
+      },
+      {
+        "title": "云宝专注",
+        "label": "focus",
+        "url": "/?page=focus",
+        "width": 240,
+        "height": 320,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false,
+        "x": 0,
+        "y": 0
       }
     ],
     "security": {

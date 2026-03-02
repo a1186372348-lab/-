@@ -5,12 +5,14 @@
   position: relative;
   width: 200px;
   height: 160px;
+  -webkit-app-region: drag;
 }
 
 .cloud-pet {
   position: relative;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
+  -webkit-app-region: drag;
 }
 
 .cloud-img {

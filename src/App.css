@@ -76,3 +76,9 @@ input,
   align-items: center;
   -webkit-app-region: no-drag;
 }
+
+/* 云朵图片区域可拖拽 */
+.cloud-pet-wrapper,
+.cloud-pet {
+  -webkit-app-region: drag;
+}

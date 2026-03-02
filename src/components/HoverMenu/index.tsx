@@ -5,6 +5,8 @@ interface HoverMenuProps {
   visible: boolean;
   onTodoBtnEnter: () => void;
   onTodoBtnLeave: () => void;
+  onFocusBtnEnter: () => void;
+  onFocusBtnLeave: () => void;
   onSettingsBtnEnter: () => void;
   onSettingsBtnLeave: () => void;
 }
@@ -13,6 +15,8 @@ export default function HoverMenu({
   visible,
   onTodoBtnEnter,
   onTodoBtnLeave,
+  onFocusBtnEnter,
+  onFocusBtnLeave,
   onSettingsBtnEnter,
   onSettingsBtnLeave,
 }: HoverMenuProps) {
@@ -33,6 +37,14 @@ export default function HoverMenu({
             title="待办"
           >
             <span className="menu-icon">☑</span>
+          </button>
+          <button
+            className="menu-item"
+            onMouseEnter={onFocusBtnEnter}
+            onMouseLeave={onFocusBtnLeave}
+            title="专注"
+          >
+            <span className="menu-icon">🍅</span>
           </button>
           <button
             className="menu-item"

@@ -5,8 +5,6 @@ import './index.css';
 
 export default function SettingsPage() {
   const [deepseekKey, setDeepseekKey] = useState('');
-  const [weatherKey, setWeatherKey] = useState('');
-  const [weatherCity, setWeatherCity] = useState('');
   const [reminderInterval, setReminderInterval] = useState(60);
   const [saved, setSaved] = useState(false);
 
@@ -14,8 +12,6 @@ export default function SettingsPage() {
     const load = async () => {
       await getDb();
       setDeepseekKey((await getSetting('deepseek_api_key')) ?? '');
-      setWeatherKey((await getSetting('weather_api_key')) ?? '');
-      setWeatherCity((await getSetting('weather_city')) ?? '');
       const interval = await getSetting('reminder_interval_min');
       setReminderInterval(interval ? parseInt(interval) : 60);
     };
@@ -24,8 +20,6 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     await setSetting('deepseek_api_key', deepseekKey.trim());
-    await setSetting('weather_api_key', weatherKey.trim());
-    await setSetting('weather_city', weatherCity.trim() || 'Beijing');
     await setSetting('reminder_interval_min', String(reminderInterval));
     await emitTo('main', 'settings-changed');
     setSaved(true);
@@ -49,30 +43,6 @@ export default function SettingsPage() {
             onChange={(e) => setDeepseekKey(e.target.value)}
           />
           <span className="sp-hint">用于 AI 对话功能</span>
-        </div>
-
-        <div className="sp-field">
-          <label className="sp-label">OpenWeather API Key</label>
-          <input
-            className="sp-input"
-            type="password"
-            placeholder="输入 API Key（可选）"
-            value={weatherKey}
-            onChange={(e) => setWeatherKey(e.target.value)}
-          />
-          <span className="sp-hint">用于天气联动，不填则始终显示多云</span>
-        </div>
-
-        <div className="sp-field">
-          <label className="sp-label">天气城市</label>
-          <input
-            className="sp-input"
-            type="text"
-            placeholder="Beijing"
-            value={weatherCity}
-            onChange={(e) => setWeatherCity(e.target.value)}
-          />
-          <span className="sp-hint">英文城市名，如 Shanghai、Chengdu</span>
         </div>
 
         <div className="sp-field">
