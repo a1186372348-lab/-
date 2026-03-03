@@ -1,3 +1,4 @@
+// @ts-nocheck — 备用文件，需先 npm install @rive-app/react-canvas 后再启用
 /**
  * CloudRenderer (Phase 2 — Rive 版)
  *

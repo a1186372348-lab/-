@@ -559,13 +559,11 @@ export default function App() {
           onSettingsBtnLeave={handleSettingsBtnLeave}
         />
 
-        <div style={{ position: 'relative' }}>
-          <CloudPet
-            expression={expression}
-            weather={weather}
-            isProcessing={isProcessing}
-          />
-        </div>
+        <CloudPet
+          expression={expression}
+          weather={weather}
+          isProcessing={isProcessing}
+        />
       </div>
 
       <InputBar

@@ -22,7 +22,8 @@
         "resizable": false,
         "center": true,
         "shadow": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "maximizable": false
       },
       {
         "title": "云宝待办",
