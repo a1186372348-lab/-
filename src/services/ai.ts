@@ -9,6 +9,17 @@ const history: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
 async function getClient(): Promise<OpenAI | null> {
   if (!client) {
+    // 优先使用 OpenClaw（本地网关），fallback 到 DeepSeek
+    const openclawToken = await getSetting('openclaw_token');
+    if (openclawToken) {
+      client = new OpenAI({
+        baseURL: 'http://127.0.0.1:18789/v1',
+        apiKey: openclawToken,
+        dangerouslyAllowBrowser: true,
+      });
+      return client;
+    }
+
     const apiKey = await getSetting('deepseek_api_key');
     if (!apiKey) return null;
     client = new OpenAI({
@@ -47,8 +58,10 @@ const SYSTEM_PROMPT = `你是一只可爱的云朵桌面宠物助手，名字叫
 
 export async function processInput(userText: string, currentTodos?: Todo[]): Promise<AiResponse> {
   const ai = await getClient();
+  const isOpenClaw = !!(await getSetting('openclaw_token'));
+
   if (!ai) {
-    return { intent: 'chat', reply: '请先在设置中填入 DeepSeek API Key，才能和我对话哦～' };
+    return { intent: 'chat', reply: '请先在设置中填入 DeepSeek API Key 或 OpenClaw Token，才能和我对话哦～' };
   }
 
   // 将当前待办数据附加到系统提示，供 query_todo 意图使用
@@ -67,7 +80,7 @@ export async function processInput(userText: string, currentTodos?: Todo[]): Pro
   if (history.length > 6) history.splice(0, history.length - 6);
 
   const completion = await ai.chat.completions.create({
-    model: 'deepseek-chat',
+    model: isOpenClaw ? 'openclaw:main' : 'deepseek-chat',
     messages: [
       { role: 'system', content: systemPrompt },
       ...history,

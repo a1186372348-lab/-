@@ -46,7 +46,7 @@
         "label": "settings",
         "url": "/?page=settings",
         "width": 360,
-        "height": 310,
+        "height": 380,
         "decorations": false,
         "transparent": true,
         "resizable": false,

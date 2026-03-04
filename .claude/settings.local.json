@@ -22,7 +22,16 @@
       "Bash(taskkill /PID 28744 /F && taskkill /PID 7604 /F 2>&1)",
       "Bash(exit 0:*)",
       "Bash(taskkill:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(npm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git:*)",
+      "Bash(cd \"D:/product/zhushou\" && npx tsc --noEmit 2>&1)",
+      "Bash(npx tsc:*)",
+      "Bash(dir:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

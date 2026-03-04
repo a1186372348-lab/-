@@ -48,6 +48,19 @@
   font-weight: 600;
   color: rgba(0, 0, 0, 0.55);
   letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sp-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  background: #4a9eff;
+  border-radius: 4px;
+  padding: 1px 5px;
+  letter-spacing: 0;
 }
 
 .sp-input {
