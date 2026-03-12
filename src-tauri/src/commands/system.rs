@@ -248,3 +248,9 @@ pub fn get_fullscreen_mode() -> u8 {
     #[cfg(not(target_os = "windows"))]
     0
 }
+
+#[tauri::command]
+pub fn set_window_passthrough(window: tauri::Window, passthrough: bool) -> Result<(), String> {
+    window.set_ignore_cursor_events(passthrough)
+        .map_err(|e| e.to_string())
+}

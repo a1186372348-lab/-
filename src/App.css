@@ -71,10 +71,19 @@ input,
 
 /* 云朵 + 菜单的统一容器 */
 .pet-area {
+  position: relative;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   -webkit-app-region: no-drag;
+}
+
+/* 气泡定位锚点，与云朵同宽同位置 */
+.cloud-pet-bubble-anchor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* 云朵图片区域可拖拽 */

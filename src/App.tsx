@@ -6,16 +6,17 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { resetClient } from './services/ai';
 import { useAppStore } from './store';
-import { getDb, fetchTodos, insertTodo, getSetting } from './services/db';
-import { processInput } from './services/ai';
+import { getDb, fetchTodos, getSetting } from './services/db';
 import { startWeatherSync } from './services/weather';
 import { startReminderService } from './services/reminder';
 import { startColorSampler, stopColorSampler } from './services/colorSampler';
 import { startTimeCycleService } from './services/timeCycle';
+import { startBridgeService, stopBridgeService } from './services/bridge';
 import CloudPet from './components/CloudPet';
 import InputBar from './components/InputBar';
 import HoverMenu from './components/HoverMenu';
 import SpeechBubble from './components/SpeechBubble';
+import ProgressBar from './components/ProgressBar';
 import './App.css';
 
 const thunderSound = new Howl({
@@ -182,13 +183,16 @@ export default function App() {
     showSpeech,
     hideSpeech,
     setTodos,
-    addTodo,
     setIsProcessing,
+    taskProgress,
+    taskProgressVisible,
+    setTaskProgress,
   } = useAppStore();
 
   const reminderIntervalRef = useRef<number>(60);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-
+  const [isPassthrough, setIsPassthrough] = useState(false);
   const unlistenMoveRef = useRef<(() => void) | null>(null);
 
   // 低干扰模式：0=正常，1=半透（最大化应用），2=隐藏（无边框全屏游戏）
@@ -231,6 +235,40 @@ export default function App() {
     let stopWeather: ReturnType<typeof setInterval>;
     let stopReminder: () => void;
     let stopTimeCycle: () => void;
+
+    // 监听 OpenClaw 推送的消息，显示气泡
+    const handleBridgeMessage = (e: Event) => {
+      const { message } = (e as CustomEvent).detail;
+      // 收到回复，进度条到 100% 后消失
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+      setTaskProgress(100, true);
+      setTimeout(() => setTaskProgress(0, false), 800);
+      showSpeech(message, 5000);
+      setExpression('happy');
+      setTimeout(() => setExpression('default'), 2000);
+    };
+    window.addEventListener('bridge-message', handleBridgeMessage);
+
+    // 监听 Claude Code Hooks 工作状态事件，更新表情
+    const handleClaudeEvent = (e: Event) => {
+      const { hook_event_name } = (e as CustomEvent).detail;
+      if (hook_event_name === 'PreToolUse' || hook_event_name === 'PostToolUse') {
+        hideSpeech();
+        setExpression('default');
+      } else if (hook_event_name === 'Stop') {
+        hideSpeech();
+        setExpression('proudly');
+        showSpeech('主人，CC完成了任务！', 3000);
+        setTimeout(() => setExpression('default'), 3000);
+      } else if (hook_event_name === 'PermissionRequest') {
+        setExpression('thinking');
+        showSpeech('主人，CC需要你的指示！', 999999999);
+      }
+    };
+    window.addEventListener('claude-event', handleClaudeEvent);
 
     const init = async () => {
       // 确保主窗口获得焦点，否则透明窗口在 Windows 上不会收到鼠标悬停事件
@@ -300,11 +338,17 @@ export default function App() {
     init();
     startColorSampler();
 
+    // 启动桥接服务
+    startBridgeService();
+
     return () => {
+      window.removeEventListener('bridge-message', handleBridgeMessage);
+      window.removeEventListener('claude-event', handleClaudeEvent);
       if (stopWeather) clearInterval(stopWeather);
       if (stopReminder) stopReminder();
       if (stopTimeCycle) stopTimeCycle();
       stopColorSampler();
+      stopBridgeService();
     };
   }, []);
 
@@ -314,31 +358,31 @@ export default function App() {
     setExpression('thinking');
 
     try {
-      const currentTodos = useAppStore.getState().todos;
-      const response = await processInput(text, currentTodos);
-      console.log('[AI response]', JSON.stringify(response));
-
-      if (response.intent === 'create_todo' && response.todo) {
-        const newTodo = await insertTodo(response.todo.title, response.todo.priority);
-        addTodo(newTodo);
-        console.log('[Todo created]', newTodo);
-        setExpression('happy');
-        showSpeech(response.reply);
-        setTimeout(() => setExpression('default'), 2000);
-      } else if (response.intent === 'create_todo' && !response.todo) {
-        // AI 意图是创建任务但没返回 todo 字段——提示用户重试
-        console.warn('[AI] create_todo intent but no todo field:', response);
-        setExpression('worried');
-        showSpeech('哎，我好像没记下来，能再说一遍吗？');
-        setTimeout(() => setExpression('default'), 2000);
-      } else {
-        setExpression('default');
-        showSpeech(response.reply);
-      }
-    } catch (e) {
-      console.error('[handleSend error]', e);
-      showSpeech('哎呀，出了点问题，稍后再试试～');
+      await fetch('http://127.0.0.1:3456/user-input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
       setExpression('default');
+
+      // 启动进度条轮询
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      setTaskProgress(10, true);
+
+      let progress = 10;
+      progressTimerRef.current = setInterval(async () => {
+        // 越接近 90% 增长越慢，永远不到 90%
+        const remaining = 90 - progress;
+        const increment = Math.max(0.3, remaining * 0.04);
+        progress = Math.min(89, progress + increment);
+        setTaskProgress(Math.round(progress), true);
+      }, 500);
+
+    } catch (e) {
+      showSpeech('OpenClaw 未连接，请确认服务已启动');
+      setExpression('worried');
+      setTimeout(() => setExpression('default'), 2000);
+      setTaskProgress(0, false);
     } finally {
       setIsProcessing(false);
     }
@@ -504,6 +548,39 @@ export default function App() {
     return () => { if (idleTimer) clearTimeout(idleTimer); };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && !isPassthrough) {
+        setIsPassthrough(true);
+        invoke('set_window_passthrough', { passthrough: true }).catch(console.error);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && isPassthrough) {
+        setIsPassthrough(false);
+        invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
+      }
+    };
+
+    const handleBlur = () => {
+      if (isPassthrough) {
+        setIsPassthrough(false);
+        invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [isPassthrough]);
+
   const handleInputFocus = useCallback(() => {
     isInputFocusedRef.current = true;
     applyDim();
@@ -533,16 +610,10 @@ export default function App() {
 
   return (
     <div className="app" style={{
-      opacity: disturbMode === 2 ? 0 : disturbMode === 1 ? 0.1 : 1,
+      opacity: isPassthrough ? 0.3 : (disturbMode === 2 ? 0 : disturbMode === 1 ? 0.1 : 1),
       transition: 'opacity 0.4s ease',
       pointerEvents: disturbMode === 2 ? 'none' : 'auto',
     }}>
-      <SpeechBubble
-        visible={speechBubble.visible}
-        text={speechBubble.text}
-        onClose={hideSpeech}
-      />
-
       {/* 云朵 + 菜单共用一个容器，统一处理 enter/leave */}
       <div
         className="pet-area"
@@ -559,13 +630,21 @@ export default function App() {
           onSettingsBtnLeave={handleSettingsBtnLeave}
         />
 
-        <CloudPet
-          expression={expression}
-          weather={weather}
-          isProcessing={isProcessing}
-        />
+        <div className="cloud-pet-bubble-anchor">
+          <SpeechBubble
+            visible={speechBubble.visible}
+            text={speechBubble.text}
+            onClose={hideSpeech}
+          />
+          <CloudPet
+            expression={expression}
+            weather={weather}
+            isProcessing={isProcessing}
+          />
+        </div>
       </div>
 
+      <ProgressBar visible={taskProgressVisible} progress={taskProgress} />
       <InputBar
         onSend={handleSend}
         isProcessing={isProcessing}

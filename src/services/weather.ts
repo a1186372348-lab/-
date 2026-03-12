@@ -21,14 +21,8 @@ function getLocation(): Promise<GeolocationCoordinates> {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        console.log('[Weather] 定位成功', pos.coords.latitude, pos.coords.longitude);
-        resolve(pos.coords);
-      },
-      (err) => {
-        console.warn('[Weather] 定位失败', err.code, err.message);
-        reject(err);
-      },
+      (pos) => resolve(pos.coords),
+      (err) => reject(err),
       { timeout: 8000, maximumAge: 30 * 60 * 1000 }
     );
   });
@@ -39,13 +33,9 @@ export async function fetchWeather(): Promise<WeatherCondition> {
   const cache = await loadWeatherCache();
   if (cache) {
     const age = Date.now() - new Date(cache.updated_at).getTime();
-    console.log(`[Weather] 缓存命中: ${cache.condition}，已过 ${Math.round(age/60000)} 分钟`);
     if (age < CACHE_TTL_MS) {
       return cache.condition as WeatherCondition;
     }
-    console.log('[Weather] 缓存已过期，重新拉取');
-  } else {
-    console.log('[Weather] 无缓存，首次拉取');
   }
 
   try {
@@ -53,13 +43,11 @@ export async function fetchWeather(): Promise<WeatherCondition> {
     const { latitude, longitude } = coords;
 
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=weathercode&wind_speed_unit=ms`;
-    console.log('[Weather] 请求 Open-Meteo:', url);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const wmoCode: number = data.current?.weathercode ?? 2;
     const condition = mapWmoCode(wmoCode);
-    console.log(`[Weather] WMO 码: ${wmoCode} → ${condition}`);
 
     await saveWeatherCache(condition, JSON.stringify(data));
     return condition;
@@ -80,19 +68,4 @@ export function startWeatherSync(
 
   run();
   return setInterval(run, CACHE_TTL_MS);
-}
-
-// 开发调试用：在控制台调用 window.__testWeather('rainy') 强制切换天气
-if (typeof window !== 'undefined') {
-  (window as any).__testWeather = (condition: WeatherCondition) => {
-    import('./weather').then(_m => {
-      // 直接触发 app store 更新
-      import('../store').then(({ useAppStore }) => {
-        useAppStore.getState().setWeather(condition);
-        if (condition === 'rainy') useAppStore.getState().setExpression('rainy');
-        else useAppStore.getState().setExpression('default');
-        console.log('[Weather Test] 已切换为:', condition);
-      });
-    });
-  };
 }

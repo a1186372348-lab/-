@@ -1,9 +1,1 @@
-#[tauri::command]
-pub async fn get_setting(_key: String) -> Result<Option<String>, String> {
-    Ok(None)
-}
-
-#[tauri::command]
-pub async fn set_setting(_key: String, _value: String) -> Result<(), String> {
-    Ok(())
-}
+// 设置读写由前端通过 tauri-plugin-sql 直接操作

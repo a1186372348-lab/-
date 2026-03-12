@@ -5,7 +5,6 @@ import './index.css';
 
 export default function SettingsPage() {
   const [deepseekKey, setDeepseekKey] = useState('');
-  const [openclawToken, setOpenclawToken] = useState('');
   const [reminderInterval, setReminderInterval] = useState(60);
   const [saved, setSaved] = useState(false);
 
@@ -13,7 +12,6 @@ export default function SettingsPage() {
     const load = async () => {
       await getDb();
       setDeepseekKey((await getSetting('deepseek_api_key')) ?? '');
-      setOpenclawToken((await getSetting('openclaw_token')) ?? '');
       const interval = await getSetting('reminder_interval_min');
       setReminderInterval(interval ? parseInt(interval) : 60);
     };
@@ -22,7 +20,6 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     await setSetting('deepseek_api_key', deepseekKey.trim());
-    await setSetting('openclaw_token', openclawToken.trim());
     await setSetting('reminder_interval_min', String(reminderInterval));
     await emitTo('main', 'settings-changed');
     setSaved(true);
@@ -37,20 +34,6 @@ export default function SettingsPage() {
 
       <div className="sp-body">
         <div className="sp-field">
-          <label className="sp-label">OpenClaw Token
-            <span className="sp-badge">优先使用</span>
-          </label>
-          <input
-            className="sp-input"
-            type="password"
-            placeholder="填入后云宝将通过 OpenClaw 执行真实操作"
-            value={openclawToken}
-            onChange={(e) => setOpenclawToken(e.target.value)}
-          />
-          <span className="sp-hint">需先在本机启动 OpenClaw 网关（端口 18789）</span>
-        </div>
-
-        <div className="sp-field">
           <label className="sp-label">DeepSeek API Key</label>
           <input
             className="sp-input"
@@ -59,7 +42,7 @@ export default function SettingsPage() {
             value={deepseekKey}
             onChange={(e) => setDeepseekKey(e.target.value)}
           />
-          <span className="sp-hint">未填 OpenClaw Token 时作为 fallback</span>
+          <span className="sp-hint">用于 AI 对话和待办管理</span>
         </div>
 
         <div className="sp-field">

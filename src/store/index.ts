@@ -16,6 +16,10 @@ interface AppState {
   speechBubble: SpeechBubble;
   isProcessing: boolean;
 
+  // 任务进度条
+  taskProgress: number;   // 0-100
+  taskProgressVisible: boolean;
+
   // 数据
   todos: Todo[];
 
@@ -28,7 +32,10 @@ interface AppState {
   setTodos: (todos: Todo[]) => void;
   addTodo: (todo: Todo) => void;
   setIsProcessing: (processing: boolean) => void;
+  setTaskProgress: (progress: number, visible: boolean) => void;
 }
+
+let speechTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useAppStore = create<AppState>((set) => ({
   expression: 'default',
@@ -36,6 +43,8 @@ export const useAppStore = create<AppState>((set) => ({
   showHoverMenu: false,
   speechBubble: { visible: false, text: '' },
   isProcessing: false,
+  taskProgress: 0,
+  taskProgressVisible: false,
   todos: [],
 
   setExpression: (expr) => set({ expression: expr }),
@@ -43,14 +52,20 @@ export const useAppStore = create<AppState>((set) => ({
   setShowHoverMenu: (show) => set({ showHoverMenu: show }),
 
   showSpeech: (text, durationMs = 5000) => {
+    if (speechTimer) clearTimeout(speechTimer);
     set({ speechBubble: { visible: true, text } });
-    setTimeout(() => {
+    speechTimer = setTimeout(() => {
       set({ speechBubble: { visible: false, text: '' } });
+      speechTimer = null;
     }, durationMs);
   },
 
-  hideSpeech: () => set({ speechBubble: { visible: false, text: '' } }),
+  hideSpeech: () => {
+    if (speechTimer) { clearTimeout(speechTimer); speechTimer = null; }
+    set({ speechBubble: { visible: false, text: '' } });
+  },
   setTodos: (todos) => set({ todos }),
   addTodo: (todo) => set((state) => ({ todos: [todo, ...state.todos] })),
   setIsProcessing: (processing) => set({ isProcessing: processing }),
+  setTaskProgress: (progress, visible) => set({ taskProgress: progress, taskProgressVisible: visible }),
 }));

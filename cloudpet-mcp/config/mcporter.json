@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "cloudpet": {
+      "command": "node",
+      "args": ["/mnt/d/product/zhushou/cloudpet-mcp/index.js"]
+    }
+  },
+  "imports": []
+}

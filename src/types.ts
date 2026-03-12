@@ -21,12 +21,3 @@ export interface Todo {
   completed_at: string | null;
   last_reminded_at: string | null;
 }
-
-export interface AiResponse {
-  intent: 'create_todo' | 'query_todo' | 'chat';
-  reply: string;
-  todo?: {
-    title: string;
-    priority: Priority;
-  };
-}

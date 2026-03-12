@@ -1,0 +1,13 @@
+{
+  "name": "cloudpet-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for CloudPet - 云朵助手桥接服务",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

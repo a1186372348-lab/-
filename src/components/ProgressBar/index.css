@@ -1,0 +1,31 @@
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  box-sizing: border-box;
+}
+
+.progress-bar-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 2px;
+  transition: width 0.5s ease-out;
+}
+
+.progress-bar-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 28px;
+  text-align: right;
+  font-family: monospace;
+}
