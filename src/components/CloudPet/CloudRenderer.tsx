@@ -20,12 +20,20 @@ import { CloudExpression, WeatherCondition } from '../../types';
 import { AutonomousBehavior } from '../../services/behaviorScheduler';
 import './index.css';
 
+interface FocusClockState {
+  running: boolean;
+  phase: 'focus' | 'rest';
+  remainSecs: number;
+  totalSecs: number;
+}
+
 export interface CloudRendererProps {
   expression: CloudExpression;
   weather: WeatherCondition;
   isProcessing: boolean;
   autonomousTrigger?: AutonomousBehavior | null;
   onAutonomousDone?: () => void;
+  focusClock?: FocusClockState | null;
 }
 
 // ── 表情 → 图片映射 ──────────────────────────────────────────
@@ -132,6 +140,7 @@ export default function CloudRenderer({
   isProcessing,
   autonomousTrigger,
   onAutonomousDone,
+  focusClock,
 }: CloudRendererProps) {
   const animateKey = getAnimateKey(expression);
   const isRainy = weather === 'rainy' || expression === 'rainy';
@@ -152,8 +161,37 @@ export default function CloudRenderer({
     });
   }, [autonomousTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const clockRadius = 13;
+  const clockCircumference = 2 * Math.PI * clockRadius;
+  const clockProgress = focusClock
+    ? Math.max(0, Math.min(1, focusClock.remainSecs / Math.max(1, focusClock.totalSecs)))
+    : 0;
+  const clockColor = focusClock?.phase === 'rest' ? '#4CAF50' : '#E53935';
+
   return (
     <div className="cloud-pet-wrapper">
+      {/* 番茄时钟 — 专注运行时显示在左上角 */}
+      {focusClock && (
+        <div className={`cloud-tomato-clock${focusClock.running ? ' cloud-tomato-clock--visible' : ''}`}>
+          <svg viewBox="0 0 36 36" width="36" height="36">
+            {/* 白色背景圆 */}
+            <circle cx="18" cy="18" r="16" fill="white" />
+            {/* 进度圆弧（顺时针从顶部，随剩余时间减少） */}
+            <circle
+              cx="18" cy="18" r={clockRadius}
+              fill="none"
+              stroke={clockColor}
+              strokeWidth="3"
+              strokeDasharray={`${clockCircumference}`}
+              strokeDashoffset={`${clockCircumference * (1 - clockProgress)}`}
+              strokeLinecap="round"
+              transform="rotate(-90 18 18)"
+            />
+            {/* 外边框 */}
+            <circle cx="18" cy="18" r="16" fill="none" stroke={clockColor} strokeWidth="1.5" />
+          </svg>
+        </div>
+      )}
       {/* 外层：主循环动画（float / thinking / sleepy...） */}
       <motion.div
         className="cloud-pet"

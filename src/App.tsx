@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Howl } from 'howler';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow, LogicalPosition, currentMonitor } from '@tauri-apps/api/window';
+import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { resetClient } from './services/ai';
@@ -31,6 +31,7 @@ const IDLE_MS = 30 * 60 * 1000;
 
 // 悬停计时器：鼠标进入容器 600ms 后显示菜单
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+let inputBarTimer: ReturnType<typeof setTimeout> | null = null;
 // 待办/设置窗口显示/隐藏计时器
 let todoShowTimer: ReturnType<typeof setTimeout> | null = null;
 let todoHideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -42,12 +43,14 @@ let focusHideTimer: ReturnType<typeof setTimeout> | null = null;
 // 光标轮询：记录子窗口可见状态和物理边界
 let todoVisible = false;
 let settingsVisible = false;
+let focusVisible = false;
 
 // 低干扰豁免：任意交互发生时调用，通知组件重新计算透明度
 let onInteractionChange: (() => void) | null = null;
 type Bounds = { x: number; y: number; w: number; h: number };
 let todoBounds: Bounds | null = null;
 let settingsBounds: Bounds | null = null;
+let focusBounds: Bounds | null = null;
 let cursorPollTimer: ReturnType<typeof setInterval> | null = null;
 
 function stopCursorPoll() {
@@ -58,9 +61,10 @@ function startCursorPoll() {
   if (cursorPollTimer) return;
   let prevInsideTodo = false;
   let prevInsideSettings = false;
+  let prevInsideFocus = false;
 
   cursorPollTimer = setInterval(async () => {
-    if (!todoVisible && !settingsVisible) { stopCursorPoll(); return; }
+    if (!todoVisible && !settingsVisible && !focusVisible) { stopCursorPoll(); return; }
 
     const [cx, cy]: [number, number] = await invoke('get_cursor_position');
 
@@ -85,6 +89,18 @@ function startCursorPoll() {
       } else if (!inside && prevInsideSettings) {
         prevInsideSettings = false;
         if (!settingsHideTimer) settingsHideTimer = setTimeout(hideSettingsWindow, 500);
+      }
+    }
+
+    if (focusVisible && focusBounds) {
+      const inside = cx >= focusBounds.x && cx < focusBounds.x + focusBounds.w
+                  && cy >= focusBounds.y && cy < focusBounds.y + focusBounds.h;
+      if (inside && !prevInsideFocus) {
+        prevInsideFocus = true;
+        if (focusHideTimer) { clearTimeout(focusHideTimer); focusHideTimer = null; }
+      } else if (!inside && prevInsideFocus) {
+        prevInsideFocus = false;
+        if (!focusHideTimer) focusHideTimer = setTimeout(hideFocusWindow, 500);
       }
     }
   }, 150);
@@ -156,11 +172,16 @@ async function showFocusWindow() {
   const mainSize = await mainWin.outerSize();
   const sf = await mainWin.scaleFactor();
   const focusWidth = 240, focusHeight = 320, gap = 8;
-  // 显示在主窗口正上方居中
+  // 显示在主窗口正上方居中，顶部与主窗口顶部对齐
   const lx = mainPos.x / sf + mainSize.width / sf / 2 - focusWidth / 2;
-  const ly = mainPos.y / sf - focusHeight - gap + 40;
+  const ly = mainPos.y / sf - focusHeight - gap;
   await focusWin.setPosition(new LogicalPosition(lx, ly));
   await focusWin.show();
+  const pos = await focusWin.outerPosition();
+  const size = await focusWin.outerSize();
+  focusBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
+  focusVisible = true;
+  startCursorPoll();
 }
 
 async function hideFocusWindow() {
@@ -168,6 +189,9 @@ async function hideFocusWindow() {
   if (!focusWin) return;
   const visible = await focusWin.isVisible();
   if (visible) await focusWin.hide();
+  focusVisible = false;
+  focusBounds = null;
+  if (!todoVisible && !settingsVisible) stopCursorPoll();
 }
 
 export default function App() {
@@ -193,17 +217,30 @@ export default function App() {
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [isPassthrough, setIsPassthrough] = useState(false);
+  const [focusClock, setFocusClock] = useState<{
+    running: boolean;
+    phase: 'focus' | 'rest';
+    remainSecs: number;
+    totalSecs: number;
+  } | null>(null);
+  const [showInputBar, setShowInputBar] = useState(false);
   const unlistenMoveRef = useRef<(() => void) | null>(null);
+  const petAreaRef = useRef<HTMLDivElement>(null);
+  const inputBarRef = useRef<HTMLDivElement>(null);
+  const showHoverMenuRef = useRef(false);
+  const showInputBarRef = useRef(false);
 
   // 低干扰模式：0=正常，1=半透（最大化应用），2=隐藏（无边框全屏游戏）
   const disturbModeRef = useRef<0 | 1 | 2>(0);
   const isPetHoveredRef = useRef(false);
   const isInputFocusedRef = useRef(false);
+  const isInputHoveredRef = useRef(false);
   const [disturbMode, setDisturbMode] = useState<0 | 1 | 2>(0);
 
   const applyDim = useCallback(() => {
-    // 任意交互时恢复正常：悬停云朵、输入框聚焦、待办窗口打开、设置窗口打开
+    // 任意交互时恢复正常：悬停云朵、悬停输入框、输入框聚焦、待办窗口打开、设置窗口打开
     const isActive = isPetHoveredRef.current
+      || isInputHoveredRef.current
       || isInputFocusedRef.current
       || todoVisible
       || settingsVisible;
@@ -221,9 +258,9 @@ export default function App() {
       const mode = await invoke<0 | 1 | 2>('get_fullscreen_mode');
       disturbModeRef.current = mode;
       applyDim();
-    }, 2000);
+    }, 500);
     return () => clearInterval(timer);
-  }, []);
+  }, [applyDim]);
 
   // 组件卸载时取消主窗口 move 监听
   useEffect(() => {
@@ -326,6 +363,22 @@ export default function App() {
         } else {
           showSpeech('休息结束，继续专注！加油 💪', 4000);
         }
+        setFocusClock(prev => prev
+          ? { ...prev, phase: next, remainSecs: payload.remainSecs, totalSecs: payload.remainSecs, running: false }
+          : null
+        );
+      });
+      await listen<{ phase: string; remainSecs: number; task?: string }>('focus-start', ({ payload }) => {
+        setFocusClock({ running: true, phase: payload.phase as 'focus' | 'rest', remainSecs: payload.remainSecs, totalSecs: payload.remainSecs });
+      });
+      await listen<{ phase: string; remainSecs: number }>('focus-pause', ({ payload }) => {
+        setFocusClock(prev => prev ? { ...prev, running: false, remainSecs: payload.remainSecs } : null);
+      });
+      await listen<{ phase: string }>('focus-reset', () => {
+        setFocusClock(null);
+      });
+      await listen<{ phase: string; remainSecs: number }>('focus-tick', ({ payload }) => {
+        setFocusClock(prev => prev ? { ...prev, remainSecs: payload.remainSecs } : null);
       });
       await listen('focus-mouse-enter', () => {
         if (focusHideTimer) clearTimeout(focusHideTimer);
@@ -390,65 +443,6 @@ export default function App() {
 
   // 初始化：定位子窗口位置，监听主窗口移动同步位置并更新边界缓存
   useEffect(() => {
-    let snapTimer: ReturnType<typeof setTimeout> | null = null;
-
-    // 拖拽停止后吸附到最近屏幕边缘
-    async function snapToEdge() {
-      const mainWin = getCurrentWindow();
-      const pos = await mainWin.outerPosition();
-      const size = await mainWin.outerSize();
-      const sf = await mainWin.scaleFactor();
-      const screen = await currentMonitor();
-      if (!screen) return;
-
-      const sw = screen.size.width;
-      const sh = screen.size.height;
-      const sx = screen.position.x;
-      const sy = screen.position.y;
-      const ww = size.width;
-      const wh = size.height;
-
-      // 当前逻辑位置
-      const lx = pos.x / sf;
-      const ly = pos.y / sf;
-      const lw = ww / sf;
-      const lh = wh / sf;
-      const lsw = sw / sf;
-      const lsh = sh / sf;
-      const lsx = sx / sf;
-      const lsy = sy / sf;
-
-      // 到四条边的距离
-      const distLeft   = pos.x - sx;
-      const distRight  = (sx + sw) - (pos.x + ww);
-      const distTop    = pos.y - sy;
-      const distBottom = (sy + sh) - (pos.y + wh);
-
-      const minDist = Math.min(distLeft, distRight, distTop, distBottom);
-      const SNAP_THRESHOLD = 200 * sf; // 物理像素，距离边缘 200px 内才吸附
-
-      let newLx = lx;
-      let newLy = ly;
-
-      if (minDist < SNAP_THRESHOLD) {
-        if (minDist === distLeft)   newLx = lsx;
-        if (minDist === distRight)  newLx = lsx + lsw - lw;
-        if (minDist === distTop)    newLy = lsy;
-        if (minDist === distBottom) newLy = lsy + lsh - lh;
-      }
-
-      if (newLx !== lx || newLy !== ly) {
-        await mainWin.setPosition(new LogicalPosition(newLx, newLy));
-        // 子窗口跟随
-        const todoWidth = 306, gap = 8;
-        const tw = await WebviewWindow.getByLabel('todo-manager');
-        if (tw) await tw.setPosition(new LogicalPosition(newLx - todoWidth - gap, newLy));
-        const swWin = await WebviewWindow.getByLabel('settings');
-        const mSize = await mainWin.outerSize();
-        if (swWin) await swWin.setPosition(new LogicalPosition(newLx + mSize.width / sf + gap, newLy));
-      }
-    }
-
     const initWindows = async () => {
       const mainWin = getCurrentWindow();
       const mainPos = await mainWin.outerPosition();
@@ -487,19 +481,11 @@ export default function App() {
             settingsBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
           }
         }
-
-        // 防抖：停止移动 400ms 后执行吸附
-        if (snapTimer) clearTimeout(snapTimer);
-        snapTimer = setTimeout(snapToEdge, 400);
       });
       unlistenMoveRef.current = unlisten;
     };
 
     initWindows();
-
-    return () => {
-      if (snapTimer) clearTimeout(snapTimer);
-    };
   }, []);
 
   const handleTodoBtnEnter = () => {
@@ -548,6 +534,51 @@ export default function App() {
     return () => { if (idleTimer) clearTimeout(idleTimer); };
   }, []);
 
+  // 同步 showHoverMenu 状态到 ref，供 mousemove 监听器使用
+  useEffect(() => {
+    showHoverMenuRef.current = showHoverMenu;
+  }, [showHoverMenu]);
+
+  // 同步 showInputBar 状态到 ref，供 mousemove 监听器使用
+  useEffect(() => {
+    showInputBarRef.current = showInputBar;
+  }, [showInputBar]);
+
+  // 兜底：document mousemove 检测鼠标是否真正离开 pet-area / input-bar
+  // 防止 Tauri 透明窗口偶发性丢失 onMouseLeave 事件
+  useEffect(() => {
+    const checkBounds = (e: MouseEvent) => {
+      // HoverMenu 兜底
+      if (showHoverMenuRef.current && petAreaRef.current) {
+        const rect = petAreaRef.current.getBoundingClientRect();
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right
+                    && e.clientY >= rect.top  && e.clientY <= rect.bottom;
+        if (!inside) {
+          if (hoverTimer) clearTimeout(hoverTimer);
+          hoverTimer = null;
+          setShowHoverMenu(false);
+          isPetHoveredRef.current = false;
+          applyDim();
+        }
+      }
+      // InputBar 兜底
+      if (showInputBarRef.current && inputBarRef.current) {
+        const rect = inputBarRef.current.getBoundingClientRect();
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right
+                    && e.clientY >= rect.top  && e.clientY <= rect.bottom;
+        if (!inside) {
+          if (inputBarTimer) clearTimeout(inputBarTimer);
+          inputBarTimer = null;
+          setShowInputBar(false);
+          isInputHoveredRef.current = false;
+          applyDim();
+        }
+      }
+    };
+    document.addEventListener('mousemove', checkBounds);
+    return () => document.removeEventListener('mousemove', checkBounds);
+  }, [applyDim, setShowHoverMenu]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Control' && !isPassthrough) {
@@ -591,35 +622,67 @@ export default function App() {
     applyDim();
   }, [applyDim]);
 
-  // 鼠标进入云朵+菜单容器：600ms 后显示菜单
+  const handleInputBarEnter = () => {
+    if (inputBarTimer) clearTimeout(inputBarTimer);
+    isInputHoveredRef.current = true;
+    applyDim();
+    setShowInputBar(true);
+  };
+
+  const handleInputBarLeave = () => {
+    if (inputBarTimer) clearTimeout(inputBarTimer);
+    inputBarTimer = setTimeout(() => {
+      isInputHoveredRef.current = false;
+      applyDim();
+      setShowInputBar(false);
+    }, 50);
+  };
+
+  // 鼠标进入云朵区域：维护低干扰状态
   const handlePetAreaEnter = () => {
     isPetHoveredRef.current = true;
     applyDim();
     resetIdle();
-    if (hoverTimer) clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(() => setShowHoverMenu(true), 600);
   };
 
-  // 鼠标离开云朵+菜单容器：延迟 150ms 隐藏
+  // 鼠标离开云朵区域
   const handlePetAreaLeave = () => {
     isPetHoveredRef.current = false;
     applyDim();
+  };
+
+  // 鼠标进入菜单触发区或菜单本身：显示菜单
+  const handleMenuZoneEnter = () => {
     if (hoverTimer) clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(() => setShowHoverMenu(false), 150);
+    hoverTimer = setTimeout(() => setShowHoverMenu(true), 200);
+  };
+
+  // 鼠标离开菜单触发区或菜单本身：隐藏菜单
+  const handleMenuZoneLeave = () => {
+    if (hoverTimer) clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(() => setShowHoverMenu(false), 50);
   };
 
   return (
     <div className="app" style={{
-      opacity: isPassthrough ? 0.3 : (disturbMode === 2 ? 0 : disturbMode === 1 ? 0.1 : 1),
+      opacity: isPassthrough ? 0.3 : (disturbMode === 2 ? 0 : disturbMode === 1 ? 0.15 : 1),
       transition: 'opacity 0.4s ease',
       pointerEvents: disturbMode === 2 ? 'none' : 'auto',
     }}>
-      {/* 云朵 + 菜单共用一个容器，统一处理 enter/leave */}
+      {/* 云朵 + 菜单容器 */}
       <div
+        ref={petAreaRef}
         className="pet-area"
         onMouseEnter={handlePetAreaEnter}
         onMouseLeave={handlePetAreaLeave}
       >
+        {/* 菜单触发区：悬停在此处才显示菜单 */}
+        <div
+          className="menu-trigger"
+          onMouseEnter={handleMenuZoneEnter}
+          onMouseLeave={handleMenuZoneLeave}
+        />
+
         <HoverMenu
           visible={showHoverMenu}
           onTodoBtnEnter={handleTodoBtnEnter}
@@ -628,6 +691,8 @@ export default function App() {
           onFocusBtnLeave={handleFocusBtnLeave}
           onSettingsBtnEnter={handleSettingsBtnEnter}
           onSettingsBtnLeave={handleSettingsBtnLeave}
+          onMenuEnter={handleMenuZoneEnter}
+          onMenuLeave={handleMenuZoneLeave}
         />
 
         <div className="cloud-pet-bubble-anchor">
@@ -640,17 +705,23 @@ export default function App() {
             expression={expression}
             weather={weather}
             isProcessing={isProcessing}
+            focusClock={focusClock}
           />
         </div>
       </div>
 
       <ProgressBar visible={taskProgressVisible} progress={taskProgress} />
-      <InputBar
-        onSend={handleSend}
-        isProcessing={isProcessing}
-        onInputFocus={handleInputFocus}
-        onInputBlur={handleInputBlur}
-      />
+      <div ref={inputBarRef} style={{ width: '100%', transform: 'translateY(-40px)', paddingTop: '20px' }}>
+        <InputBar
+          onSend={handleSend}
+          isProcessing={isProcessing}
+          visible={showInputBar}
+          onMouseEnter={handleInputBarEnter}
+          onMouseLeave={handleInputBarLeave}
+          onInputFocus={handleInputFocus}
+          onInputBlur={handleInputBlur}
+        />
+      </div>
     </div>
   );
 }

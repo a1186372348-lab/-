@@ -9,13 +9,21 @@ import { CloudExpression, WeatherCondition } from '../../types';
 import CloudRenderer from './CloudRenderer';
 import { useAutonomousBehavior } from '../../hooks/useAutonomousBehavior';
 
+interface FocusClockState {
+  running: boolean;
+  phase: 'focus' | 'rest';
+  remainSecs: number;
+  totalSecs: number;
+}
+
 interface CloudPetProps {
   expression: CloudExpression;
   weather: WeatherCondition;
   isProcessing: boolean;
+  focusClock?: FocusClockState | null;
 }
 
-export default function CloudPet({ expression, weather, isProcessing }: CloudPetProps) {
+export default function CloudPet({ expression, weather, isProcessing, focusClock }: CloudPetProps) {
   const { pendingTrigger, clearTrigger } = useAutonomousBehavior();
 
   return (
@@ -25,6 +33,7 @@ export default function CloudPet({ expression, weather, isProcessing }: CloudPet
       isProcessing={isProcessing}
       autonomousTrigger={pendingTrigger}
       onAutonomousDone={clearTrigger}
+      focusClock={focusClock}
     />
   );
 }
