@@ -26,38 +26,38 @@
   height: fit-content;
   position: absolute;
   font-size: 11px;
-  color: white;
+  color: var(--ui-fg);
   font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
     "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
   opacity: 0;
   visibility: hidden;
-  transition: 0.2s linear;
+  transition: opacity 0.2s linear, visibility 0.2s linear, top 0.2s linear;
   top: 115%;
   white-space: nowrap;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--ui-tooltip-shadow);
   pointer-events: none;
 }
 
 .menu-icon {
   width: 24px;
   height: 24px;
-  transition: 0.2s linear;
+  color: var(--ui-fg);
+  transition: transform 0.2s linear, color 0.2s linear;
 }
 
 .menu-icon path {
-  fill: white;
-  transition: 0.2s linear;
+  fill: currentColor;
+  transition: fill 0.2s linear;
 }
 
-.menu-item:hover > .menu-icon {
+.menu-item:hover > .menu-icon,
+.menu-item:focus-visible > .menu-icon {
   transform: scale(1.2);
+  color: var(--ui-hover-accent);
 }
 
-.menu-item:hover > .menu-icon path {
-  fill: rgb(177, 139, 189);
-}
-
-.menu-item:hover::after {
+.menu-item:hover::after,
+.menu-item:focus-visible::after {
   visibility: visible;
   opacity: 1;
   top: 105%;

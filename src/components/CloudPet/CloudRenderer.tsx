@@ -161,34 +161,58 @@ export default function CloudRenderer({
     });
   }, [autonomousTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clockRadius = 13;
+  const clockRadius = 8.5;
   const clockCircumference = 2 * Math.PI * clockRadius;
   const clockProgress = focusClock
     ? Math.max(0, Math.min(1, focusClock.remainSecs / Math.max(1, focusClock.totalSecs)))
     : 0;
-  const clockColor = focusClock?.phase === 'rest' ? '#4CAF50' : '#E53935';
+  const clockArcColor = focusClock?.phase === 'rest' ? '#4A9060' : '#C94040';
+  const clockMins = focusClock ? Math.floor(focusClock.remainSecs / 60) : 0;
+  const clockSecs = focusClock ? focusClock.remainSecs % 60 : 0;
+  const clockTimeStr = `${String(clockMins).padStart(2, '0')}:${String(clockSecs).padStart(2, '0')}`;
 
   return (
     <div className="cloud-pet-wrapper">
       {/* 番茄时钟 — 专注运行时显示在左上角 */}
       {focusClock && (
         <div className={`cloud-tomato-clock${focusClock.running ? ' cloud-tomato-clock--visible' : ''}`}>
-          <svg viewBox="0 0 36 36" width="36" height="36">
-            {/* 白色背景圆 */}
-            <circle cx="18" cy="18" r="16" fill="white" />
-            {/* 进度圆弧（顺时针从顶部，随剩余时间减少） */}
+          <svg viewBox="0 0 44 50" width="44" height="50">
+            {/* 左叶（短圆） */}
+            <path d="M 20 19 C 15 16 9 11 11 7 C 13 4 19 14 20 19 Z" fill="#5A9E6E" />
+            {/* 右叶（略大，轻微不对称） */}
+            <path d="M 24 19 C 29 15 35 10 33 6 C 31 3 25 13 24 19 Z" fill="#4B8C5F" />
+            {/* 茎 */}
+            <path d="M 22 19 Q 21.5 15 21 13" stroke="#4A7A5A" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+            {/* 番茄体 */}
+            <circle cx="22" cy="33" r="16" fill="#E8514A" />
+            {/* 微高光 */}
+            <ellipse cx="17" cy="27" rx="4" ry="2.5" fill="rgba(255,255,255,0.12)" transform="rotate(-20 17 27)" />
+            {/* 白色表盘（暖白） */}
+            <circle cx="22" cy="33" r="11" fill="#FFFEF8" />
+            {/* 进度底轨 */}
+            <circle cx="22" cy="33" r={clockRadius} fill="none" stroke="#EDE8E0" strokeWidth="2" />
+            {/* 进度弧 */}
             <circle
-              cx="18" cy="18" r={clockRadius}
+              cx="22" cy="33" r={clockRadius}
               fill="none"
-              stroke={clockColor}
-              strokeWidth="3"
+              stroke={clockArcColor}
+              strokeWidth="2"
               strokeDasharray={`${clockCircumference}`}
               strokeDashoffset={`${clockCircumference * (1 - clockProgress)}`}
               strokeLinecap="round"
-              transform="rotate(-90 18 18)"
+              transform="rotate(-90 22 33)"
+              style={{ transition: 'stroke-dashoffset 1s linear' }}
             />
-            {/* 外边框 */}
-            <circle cx="18" cy="18" r="16" fill="none" stroke={clockColor} strokeWidth="1.5" />
+            {/* 时间文字 MM:SS */}
+            <text
+              x="22" y="35.5"
+              textAnchor="middle"
+              fontSize="5"
+              fontWeight="600"
+              fill="#5A3535"
+              fontFamily="'SF Mono', 'Consolas', monospace"
+              style={{ fontVariantNumeric: 'tabular-nums' } as React.CSSProperties}
+            >{clockTimeStr}</text>
           </svg>
         </div>
       )}

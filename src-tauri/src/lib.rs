@@ -1,6 +1,5 @@
 mod commands;
 mod db;
-mod bridge_server;
 
 use tauri::{Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
@@ -16,16 +15,6 @@ pub fn run() {
             commands::system::set_window_passthrough,
         ])
         .setup(|app| {
-            // 启动 HTTP 桥接服务器
-            std::thread::spawn(|| {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    if let Err(e) = bridge_server::start_bridge_server().await {
-                        eprintln!("[Bridge] 服务器启动失败: {}", e);
-                    }
-                });
-            });
-
             let show = MenuItem::with_id(app, "show", "显示云朵", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;

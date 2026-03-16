@@ -17,6 +17,8 @@
   --ui-btn-bg: rgba(255, 255, 255, 0.15);
   --ui-btn-hover-bg: rgba(255, 255, 255, 0.25);
   --ui-label: #ffffff;
+  --ui-hover-accent: #d7b6e2;
+  --ui-tooltip-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 
 /* 浅色背景 → 深色 UI */
@@ -28,6 +30,8 @@
   --ui-btn-bg: rgba(0, 0, 0, 0.08);
   --ui-btn-hover-bg: rgba(0, 0, 0, 0.15);
   --ui-label: #111111;
+  --ui-hover-accent: #8a5aa0;
+  --ui-tooltip-shadow: 0 1px 3px rgba(255, 255, 255, 0.65);
 }
 
 /* 深色背景 → 浅色 UI（同默认，明确写出方便维护） */
@@ -39,6 +43,8 @@
   --ui-btn-bg: rgba(255, 255, 255, 0.15);
   --ui-btn-hover-bg: rgba(255, 255, 255, 0.25);
   --ui-label: #ffffff;
+  --ui-hover-accent: #d7b6e2;
+  --ui-tooltip-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 
 html, body, #root {

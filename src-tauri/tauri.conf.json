@@ -26,6 +26,21 @@
         "maximizable": false
       },
       {
+        "title": "云朵气泡",
+        "label": "speech-bubble",
+        "url": "/?page=speech-bubble",
+        "width": 240,
+        "height": 210,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false,
+        "x": 0,
+        "y": 0
+      },
+      {
         "title": "云宝待办",
         "label": "todo-manager",
         "url": "/?page=todos",
