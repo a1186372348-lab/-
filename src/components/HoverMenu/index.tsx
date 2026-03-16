@@ -9,6 +9,8 @@ interface HoverMenuProps {
   onFocusBtnLeave: () => void;
   onSettingsBtnEnter: () => void;
   onSettingsBtnLeave: () => void;
+  onMenuEnter: () => void;
+  onMenuLeave: () => void;
 }
 
 export default function HoverMenu({
@@ -19,12 +21,16 @@ export default function HoverMenu({
   onFocusBtnLeave,
   onSettingsBtnEnter,
   onSettingsBtnLeave,
+  onMenuEnter,
+  onMenuLeave,
 }: HoverMenuProps) {
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
           className="hover-menu"
+          onMouseEnter={onMenuEnter}
+          onMouseLeave={onMenuLeave}
           initial={{ opacity: 0, scale: 0.8, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.8, y: 8 }}

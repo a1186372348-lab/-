@@ -79,6 +79,15 @@ input,
   -webkit-app-region: no-drag;
 }
 
+/* 菜单触发区：悬停此区域才显示菜单 */
+.menu-trigger {
+  width: 100%;
+  height: 20px;
+  position: relative;
+  z-index: 11;
+  -webkit-app-region: no-drag;
+}
+
 /* 气泡定位锚点，与云朵同宽同位置 */
 .cloud-pet-bubble-anchor {
   display: flex;

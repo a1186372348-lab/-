@@ -220,16 +220,29 @@ mod fullscreen {
 
                 let t = 10i32;
                 let m = &mi.rc_monitor;
-                let covers = rect.left   <= m.left   + t
-                          && rect.top    <= m.top    + t
-                          && rect.right  >= m.right  - t
-                          && rect.bottom >= m.bottom - t;
+                let w = &mi.rc_work;
 
+                // 覆盖完整显示器（含任务栏）→ 真全屏（F11/无边框）→ mode 2
+                let covers_monitor = rect.left   <= m.left   + t
+                                  && rect.top    <= m.top    + t
+                                  && rect.right  >= m.right  - t
+                                  && rect.bottom >= m.bottom - t;
+
+                // 覆盖工作区（不含任务栏）且有 WS_MAXIMIZE 标志 → 最大化窗口 → mode 1
                 let style = GetWindowLongW(hwnd, GWL_STYLE);
-                let maximized = style & WS_MAXIMIZE != 0;
+                let is_maximized = style & WS_MAXIMIZE != 0;
+                let covers_work = rect.left   <= w.left   + t
+                               && rect.top    <= w.top    + t
+                               && rect.right  >= w.right  - t
+                               && rect.bottom >= w.bottom - t;
 
-                return if covers {
-                    if maximized { 1 } else { 2 }
+                eprintln!("[DisturbMode] covers_monitor={} covers_work={} maximized={}",
+                    covers_monitor, covers_work, is_maximized);
+
+                return if covers_monitor {
+                    2  // 真全屏
+                } else if covers_work && is_maximized {
+                    1  // 最大化窗口
                 } else {
                     0
                 };
