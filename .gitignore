@@ -12,7 +12,8 @@ dist
 dist-ssr
 *.local
 
-# Claude Code hooks 日志
+# Claude Code 本地配置
+.claude/settings.local.json
 .claude/hooks/hook-events.log
 
 # Editor directories and files
