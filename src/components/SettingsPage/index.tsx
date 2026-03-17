@@ -6,6 +6,8 @@ import './index.css';
 export default function SettingsPage() {
   const [deepseekKey, setDeepseekKey] = useState('');
   const [reminderInterval, setReminderInterval] = useState(60);
+  const [visionProvider, setVisionProvider] = useState('');
+  const [visionApiKey, setVisionApiKey] = useState('');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -14,6 +16,8 @@ export default function SettingsPage() {
       setDeepseekKey((await getSetting('deepseek_api_key')) ?? '');
       const interval = await getSetting('reminder_interval_min');
       setReminderInterval(interval ? parseInt(interval) : 60);
+      setVisionProvider((await getSetting('vision_provider')) ?? 'gemini');
+      setVisionApiKey((await getSetting('vision_api_key')) ?? '');
     };
     load();
   }, []);
@@ -21,6 +25,8 @@ export default function SettingsPage() {
   const handleSave = async () => {
     await setSetting('deepseek_api_key', deepseekKey.trim());
     await setSetting('reminder_interval_min', String(reminderInterval));
+    await setSetting('vision_provider', visionProvider);
+    await setSetting('vision_api_key', visionApiKey.trim());
     await emitTo('main', 'settings-changed');
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -44,6 +50,33 @@ export default function SettingsPage() {
           />
           <span className="sp-hint">用于 AI 对话和待办管理</span>
         </div>
+
+        <div className="sp-field">
+          <label className="sp-label">屏幕感知（视觉模型）</label>
+          <select
+            className="sp-input"
+            value={visionProvider}
+            onChange={(e) => setVisionProvider(e.target.value)}
+          >
+            <option value="gemini">Gemini 2.5 Flash-Lite（推荐）</option>
+            <option value="glm">GLM-4V-Flash（免费）</option>
+            <option value="">不启用</option>
+          </select>
+          <span className="sp-hint">云朵将每30秒感知屏幕并主动发言</span>
+        </div>
+
+        {visionProvider && (
+          <div className="sp-field">
+            <label className="sp-label">视觉模型 API Key</label>
+            <input
+              className="sp-input"
+              type="password"
+              placeholder={visionProvider === 'glm' ? 'zhipu-api-key...' : 'AIza...'}
+              value={visionApiKey}
+              onChange={(e) => setVisionApiKey(e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="sp-field">
           <label className="sp-label">

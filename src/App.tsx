@@ -4,7 +4,8 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
 import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
-import { resetClient, chat } from './services/ai';
+import { resetClient, chatStream } from './services/ai';
+import { startScreenMonitor, stopScreenMonitor } from './services/screenMonitor';
 import { useAppStore } from './store';
 import { getDb, getSetting } from './services/db';
 import { startWeatherSync } from './services/weather';
@@ -204,9 +205,10 @@ export default function App() {
   } = useAppStore();
 
   // ── 气泡窗口控制 ─────────────────────────────────────────────
-  // 云朵顶部距主窗口顶部约 70px（逻辑像素），气泡窗口高 200px
-  const CLOUD_TOP_OFFSET = 70;
+  // 云朵顶部距主窗口顶部约 70px（逻辑像素），气泡窗口高 210px
+  const CLOUD_TOP_OFFSET = 40;
   const BUBBLE_WIN_H = 210;
+  const bubbleReadyRef = useRef(false); // 记录气泡窗口是否已首次 show（WebView 已初始化）
 
   const showSpeech = useCallback(async (text: string, durationMs = 5000) => {
     try {
@@ -215,15 +217,20 @@ export default function App() {
       if (!bubbleWin) return;
       const pos = await mainWin.outerPosition();
       const sf = await mainWin.scaleFactor();
+      // 1. 先定位（窗口隐藏时定位不会闪烁）
       await bubbleWin.setPosition(new LogicalPosition(
         pos.x / sf,
         Math.max(0, pos.y / sf + CLOUD_TOP_OFFSET - BUBBLE_WIN_H),
       ));
-      // 先发事件（隐藏窗口的 WebView 也能收到全局 emit）
+      // 2. 首次 show：等 WebView 完成初始化再 emit
+      if (!bubbleReadyRef.current) {
+        await bubbleWin.show();
+        bubbleReadyRef.current = true;
+        // 等待 React 挂载并注册 listen（WebView2 冷启动约需 300ms）
+        await new Promise<void>(r => setTimeout(r, 400));
+      }
+      // 3. 发送内容，React 渲染气泡并关闭穿透
       await emit('speech:show', { text, duration: durationMs });
-      // 等 React 渲染好内容，再显示窗口
-      await new Promise<void>(r => setTimeout(r, 80));
-      await bubbleWin.show();
     } catch {
       // 静默失败
     }
@@ -254,6 +261,10 @@ export default function App() {
   const isInputFocusedRef = useRef(false);
   const isInputHoveredRef = useRef(false);
   const [disturbMode, setDisturbMode] = useState<0 | 1 | 2>(0);
+
+  // CC 工作感知：CC 有事件时临时显形
+  const [ccActive, setCcActive] = useState(false);
+  const ccTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyDim = useCallback(() => {
     // 浠绘剰浜や簰鏃舵仮澶嶆甯革細鎮仠浜戞湹銆佹偓鍋滆緭鍏ユ銆佽緭鍏ユ鑱氱劍銆佸緟鍔炵獥鍙ｆ墦寮€銆佽缃獥鍙ｆ墦寮€
@@ -301,7 +312,7 @@ export default function App() {
         if (inside) {
           if (disturbHoverStartRef.current === null) {
             disturbHoverStartRef.current = Date.now();
-          } else if (Date.now() - disturbHoverStartRef.current >= 2000) {
+          } else if (Date.now() - disturbHoverStartRef.current >= 1000) {
             stopPoll();
             await invoke('set_window_passthrough', { passthrough: false });
             isPetHoveredRef.current = true;
@@ -407,16 +418,64 @@ export default function App() {
       await listen('focus-mouse-leave', () => {
         focusHideTimer = setTimeout(hideFocusWindow, 500);
       });
+
+      // CC 事件感知：低干扰模式下临时显形；阶段性节点弹气泡提示
+      let ccPermissionPending = false;
+
+      await listen<{ event: string; tool: string }>('cc-event', ({ payload }) => {
+        if (ccTimerRef.current) { clearTimeout(ccTimerRef.current); ccTimerRef.current = null; }
+        setCcActive(true);
+
+        if (payload.event === 'PermissionRequest') {
+          ccPermissionPending = true;
+          setExpression('worried');
+          showSpeech('主人，CC 需要你的指示~', 0);
+        } else if (payload.event === 'Stop') {
+          ccPermissionPending = false;
+          setExpression('proudly');
+          showSpeech('主人，任务完成了！', 0); // 不自动关闭，由 setTimeout 统一控制
+          ccTimerRef.current = setTimeout(() => {
+            setExpression('default');
+            setCcActive(false);
+            emit('speech:done', { duration: 300 }); // 与表情同步关闭
+            ccTimerRef.current = null;
+          }, 3000);
+        } else {
+          // PreToolUse / PostToolUse：用户已响应权限请求，立即恢复默认
+          if (ccPermissionPending) {
+            ccPermissionPending = false;
+            setExpression('default');
+            emit('speech:done', { duration: 300 });
+          }
+        }
+      });
     };
 
     init();
     startColorSampler();
+
+    startScreenMonitor({
+      getDisturbMode: () => disturbModeRef.current,
+      isUserTyping: () => isInputFocusedRef.current,
+      onSpeak: (text) => {
+        showSpeech(text, 0);
+        setExpression('happy');
+      },
+      onChunk: (delta) => {
+        emit('speech:append', { delta });
+      },
+      onDone: () => {
+        emit('speech:done', { duration: 5000 });
+        setTimeout(() => setExpression('default'), 2000);
+      },
+    });
 
     return () => {
       if (stopWeather) clearInterval(stopWeather);
       if (stopReminder) stopReminder();
       if (stopTimeCycle) stopTimeCycle();
       stopColorSampler();
+      stopScreenMonitor();
     };
   }, []);
 
@@ -424,9 +483,22 @@ export default function App() {
     resetIdle();
     setIsProcessing(true);
     setExpression('thinking');
-    const reply = await chat(text);
-    showSpeech(reply, 5000);
-    setExpression('happy');
+
+    let firstChunk = true;
+    await chatStream(text, (delta) => {
+      if (firstChunk) {
+        // 第一个 chunk 到达时立刻打开气泡，传入 delta 作为初始内容
+        showSpeech(delta, 0);   // duration=0：不自动关闭，流式期间保持
+        firstChunk = false;
+        setExpression('happy');
+      } else {
+        // 后续 chunk：追加文字
+        emit('speech:append', { delta });
+      }
+    });
+
+    // 流结束后启动自动关闭计时
+    emit('speech:done', { duration: 5000 });
     setTimeout(() => setExpression('default'), 2000);
     setIsProcessing(false);
   }, []);
@@ -472,7 +544,7 @@ export default function App() {
           }
         }
         const bw = await WebviewWindow.getByLabel('speech-bubble');
-        if (bw && await bw.isVisible()) {
+        if (bw) {
           await bw.setPosition(new LogicalPosition(
             physPos.x / sf,
             physPos.y / sf + CLOUD_TOP_OFFSET - BUBBLE_WIN_H,
@@ -664,9 +736,11 @@ export default function App() {
     <div className="app" style={{
       opacity: isPassthrough
         ? 0.3
-        : (disturbMode === 2 ? 0 : disturbMode === 1 ? 0.15 : 1),
+        : (ccActive && disturbMode !== 0)
+          ? 1
+          : (disturbMode === 2 ? 0 : disturbMode === 1 ? 0.15 : 1),
       transition: 'opacity 0.4s ease',
-      pointerEvents: disturbMode === 2 ? 'none' : 'auto',
+      pointerEvents: (disturbMode === 2 && !ccActive) ? 'none' : 'auto',
     }}>
       {/* 浜戞湹 + 鑿滃崟瀹瑰櫒 */}
       <div

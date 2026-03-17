@@ -64,6 +64,12 @@ const MIGRATIONS = `
 // 已有数据库的列补丁（ALTER TABLE IF NOT EXISTS 不支持，用 try/catch）
 const COLUMN_MIGRATIONS = [
   "ALTER TABLE user_memories ADD COLUMN importance INTEGER NOT NULL DEFAULT 3",
+  "ALTER TABLE user_memories ADD COLUMN subject_role TEXT NOT NULL DEFAULT 'user'",
+  "ALTER TABLE user_memories ADD COLUMN fact_type TEXT NOT NULL DEFAULT 'preference'",
+  "ALTER TABLE user_memories ADD COLUMN embedding TEXT",
+  "ALTER TABLE user_memories ADD COLUMN embedding_model TEXT",
+  "ALTER TABLE user_memories ADD COLUMN confirmed_count INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE user_memories ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
 ];
 
 export async function getDb(): Promise<Database> {
@@ -282,50 +288,173 @@ export async function getRecentChatHistory(
 
 // ── 用户记忆 ────────────────────────────────────────────────
 
+export interface MemoryRow {
+  id: number;
+  category: string;       // 兼容旧字段
+  fact_type: string;      // identity/preference/habit/fact/task/screen_habit
+  subject_role: string;   // user/assistant
+  content: string;
+  importance: number;
+  confirmed_count: number;
+  status: string;         // active/superseded
+  embedding: string | null;
+  embedding_model: string | null;
+  updated_at: string;
+}
+
+/** 余弦相似度（两个已 L2 归一化向量） */
+export function cosineSim(a: number[], b: number[]): number {
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot;
+}
+
+/** 写入或更新记忆（两阶段去重：embedding 候选 + 规则判重） */
 export async function upsertMemory(
   category: string,
   content: string,
   importance = 3,
+  opts: {
+    factType?: string;
+    subjectRole?: string;
+    embedding?: number[];
+    embeddingModel?: string;
+  } = {},
 ): Promise<void> {
   const database = await getDb();
+  const factType = opts.factType ?? category;
+  const subjectRole = opts.subjectRole ?? 'user';
+  const embeddingJson = opts.embedding ? JSON.stringify(opts.embedding) : null;
+  const embeddingModel = opts.embeddingModel ?? null;
+
+  // 1. 精确内容去重（原有逻辑）
+  const exact = await database.select<{ id: number }[]>(
+    'SELECT id FROM user_memories WHERE content = $1 AND status = $2',
+    [content, 'active']
+  );
+  if (exact.length > 0) {
+    await database.execute(
+      `UPDATE user_memories SET
+         importance = MAX(importance, $1),
+         confirmed_count = confirmed_count + 1,
+         updated_at = datetime('now','localtime')
+       WHERE id = $2`,
+      [importance, exact[0].id]
+    );
+    return;
+  }
+
+  // 2. 语义去重（仅在有 embedding 时执行）
+  if (opts.embedding) {
+    const candidates = await database.select<{
+      id: number; content: string; fact_type: string;
+      subject_role: string; embedding: string | null;
+    }[]>(
+      `SELECT id, content, fact_type, subject_role, embedding
+       FROM user_memories WHERE status = 'active' AND embedding IS NOT NULL`
+    );
+
+    for (const c of candidates) {
+      if (!c.embedding) continue;
+      // 规则门控：subject_role 和 fact_type 不同 → 直接跳过，不视为重复
+      if (c.subject_role !== subjectRole || c.fact_type !== factType) continue;
+
+      const sim = cosineSim(opts.embedding, JSON.parse(c.embedding) as number[]);
+
+      if (sim >= 0.90) {
+        // duplicate：confirmed_count++，保留更长/更新的 content
+        const merged = content.length > c.content.length ? content : c.content;
+        await database.execute(
+          `UPDATE user_memories SET
+             content = $1,
+             importance = MAX(importance, $2),
+             confirmed_count = confirmed_count + 1,
+             updated_at = datetime('now','localtime')
+           WHERE id = $3`,
+          [merged, importance, c.id]
+        );
+        return;
+      }
+
+      if (sim >= 0.80) {
+        // update：新内容更细化则更新，否则仅增加 confirmed_count
+        await database.execute(
+          `UPDATE user_memories SET
+             importance = MAX(importance, $1),
+             confirmed_count = confirmed_count + 1,
+             updated_at = datetime('now','localtime')
+           WHERE id = $2`,
+          [importance, c.id]
+        );
+        return;
+      }
+    }
+  }
+
+  // 3. 无重复 → 新增
   await database.execute(
-    `INSERT INTO user_memories (category, content, importance, updated_at)
-     VALUES ($1, $2, $3, datetime('now','localtime'))
-     ON CONFLICT(content) DO UPDATE SET
-       category   = $1,
-       importance = MAX(importance, $3),
-       updated_at = datetime('now','localtime')`,
-    [category, content, importance]
+    `INSERT INTO user_memories
+       (category, fact_type, subject_role, content, importance,
+        embedding, embedding_model, confirmed_count, status, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 1, 'active', datetime('now','localtime'))`,
+    [factType, factType, subjectRole, content, importance, embeddingJson, embeddingModel]
   );
 }
 
-/** 按查询相关性返回最多 limit 条记忆（JS 层评分：关键词命中×3 + importance + 近期度） */
+/** Hybrid 检索：向量相似 × 0.50 + importance × 0.25 + 近期度 × 0.15 + 关键词 × 0.10
+ *  identity/preference 类近期度恒为 1.0，候选池 30 条去重后取 limit 条 */
 export async function getRelevantMemories(
   query: string,
-  limit = 8,
+  limit = 15,
+  queryEmbedding?: number[],
 ): Promise<Array<{ id: number; category: string; content: string }>> {
   const database = await getDb();
-  const all = await database.select<{
-    id: number; category: string; content: string;
-    importance: number; updated_at: string;
-  }[]>(
-    'SELECT id, category, content, importance, updated_at FROM user_memories ORDER BY updated_at DESC'
+  const all = await database.select<MemoryRow[]>(
+    `SELECT id, category, fact_type, subject_role, content, importance,
+            confirmed_count, status, embedding, embedding_model, updated_at
+     FROM user_memories WHERE status = 'active' ORDER BY updated_at DESC`
   );
   if (!all.length) return [];
 
-  // 提取中文（2字符+）和英文（3字符+）关键词，最多取前8个
   const keywords = (query.match(/[\u4e00-\u9fa5]{2,}|[a-zA-Z]{3,}/g) ?? []).slice(0, 8);
   const now = Date.now();
+  const LONG_TERM_TYPES = new Set(['identity', 'preference', 'name']);
 
   const scored = all.map(m => {
-    const keyHits = keywords.filter(k => m.content.includes(k)).length;
+    // 关键词分
+    const keyScore = keywords.filter(k => m.content.includes(k)).length /
+                     Math.max(keywords.length, 1);
+
+    // 近期度：长期事实不衰减
     const daysSince = (now - new Date(m.updated_at).getTime()) / 86400000;
-    const recency = Math.max(0, 1 - daysSince / 30); // 30天内线性衰减
-    return { id: m.id, category: m.category, content: m.content, score: keyHits * 3 + m.importance + recency };
+    const recency = LONG_TERM_TYPES.has(m.fact_type)
+      ? 1.0
+      : Math.max(0, 1 - daysSince / 30);
+
+    // 向量相似度
+    let vecSim = 0;
+    if (queryEmbedding && m.embedding) {
+      try { vecSim = cosineSim(queryEmbedding, JSON.parse(m.embedding) as number[]); }
+      catch { vecSim = 0; }
+    }
+
+    // importance 归一化（1-5 → 0-1）
+    const imp = (m.importance - 1) / 4;
+
+    // confirmed_count 加成（多次确认的事实更可靠，最多 +0.1）
+    const confirmBonus = Math.min(m.confirmed_count - 1, 5) * 0.02;
+
+    const score = queryEmbedding
+      ? vecSim * 0.50 + imp * 0.25 + recency * 0.15 + keyScore * 0.10 + confirmBonus
+      : keyScore * 0.40 + imp * 0.35 + recency * 0.25 + confirmBonus; // 无 embedding 降级公式
+
+    return { id: m.id, category: m.category ?? m.fact_type, content: m.content, score };
   });
 
+  // 候选池 30 → 排序 → 取 limit
   return scored
     .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(limit, 30))
     .slice(0, limit)
     .map(({ id, category, content }) => ({ id, category, content }));
 }

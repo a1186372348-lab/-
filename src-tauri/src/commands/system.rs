@@ -267,3 +267,38 @@ pub fn set_window_passthrough(window: tauri::Window, passthrough: bool) -> Resul
     window.set_ignore_cursor_events(passthrough)
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn take_screenshot() -> Result<String, String> {
+    use xcap::Monitor;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+
+    let monitors = Monitor::all().map_err(|e| e.to_string())?;
+    let monitor = monitors.iter()
+        .find(|m| m.is_primary())
+        .or_else(|| monitors.first())
+        .ok_or_else(|| "no monitor".to_string())?;
+
+    // 截图失败（锁屏/UAC）→ 返回空字符串，上层静默跳过
+    let img = match monitor.capture_image() {
+        Ok(i) => i,
+        Err(_) => return Ok(String::new()),
+    };
+
+    let w = img.width();
+    let h = img.height();
+    let resized = if w > 1280 {
+        let nh = (h as f32 * 1280.0 / w as f32) as u32;
+        image::imageops::resize(&img, 1280, nh, image::imageops::FilterType::Triangle)
+    } else {
+        img
+    };
+
+    // 转为 DynamicImage 后 JPEG 压缩
+    let dynamic = image::DynamicImage::ImageRgba8(resized);
+    let mut buf = Vec::new();
+    dynamic.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Jpeg)
+        .map_err(|e| e.to_string())?;
+
+    Ok(STANDARD.encode(&buf))
+}

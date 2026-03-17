@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+mod bridge_server;
 
 use tauri::{Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
@@ -13,8 +14,12 @@ pub fn run() {
             commands::system::get_cursor_position,
             commands::system::get_fullscreen_mode,
             commands::system::set_window_passthrough,
+            commands::system::take_screenshot,
         ])
         .setup(|app| {
+            // 启动 CC 事件桥接服务器（监听 :3456）
+            bridge_server::start(app.handle().clone());
+
             let show = MenuItem::with_id(app, "show", "显示云朵", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;

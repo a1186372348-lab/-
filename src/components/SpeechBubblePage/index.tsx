@@ -8,29 +8,64 @@ export default function SpeechBubblePage() {
   const [text, setText] = useState('');
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  const clearTimer = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  };
 
   const dismiss = useCallback(() => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    clearTimer();
     setVisible(false);
-    setTimeout(() => getCurrentWindow().hide(), 250);
+    getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
   }, []);
 
+  // 文字更新后滚动到底部（裁切顶部内容，保留最新文字）
+  const scrollToBottom = () => {
+    const el = textRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+
   useEffect(() => {
-    const unsubPromises = [
+    getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
+
+    const unsubs: Promise<() => void>[] = [
+      // 新一条回复开始：重置内容，立刻显示
       listen<{ text: string; duration?: number }>('speech:show', ({ payload }) => {
-        if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+        clearTimer();
         setText(payload.text);
         setVisible(true);
+        getCurrentWindow().setIgnoreCursorEvents(false).catch(() => {});
+        // duration=0 表示流式期间不自动关闭
+        if (payload.duration && payload.duration > 0) {
+          timerRef.current = setTimeout(dismiss, payload.duration);
+        }
+      }),
+
+      // 流式追加
+      listen<{ delta: string }>('speech:append', ({ payload }) => {
+        setText(prev => prev + payload.delta);
+      }),
+
+      // 流结束，启动自动关闭计时
+      listen<{ duration: number }>('speech:done', ({ payload }) => {
+        clearTimer();
         timerRef.current = setTimeout(dismiss, payload.duration ?? 5000);
       }),
+
       listen('speech:hide', dismiss),
     ];
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      unsubPromises.forEach(p => p.then(fn => fn()));
+      clearTimer();
+      unsubs.forEach(p => p.then(fn => fn()).catch(() => {}));
     };
   }, [dismiss]);
+
+  // text 变化时滚到底部
+  useEffect(() => {
+    scrollToBottom();
+  }, [text]);
 
   return (
     <div className="bubble-window">
@@ -44,7 +79,7 @@ export default function SpeechBubblePage() {
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={dismiss}
           >
-            <p className="speech-text">{text}</p>
+            <p className="speech-text" ref={textRef}>{text}</p>
             <div className="bubble-tail" />
           </motion.div>
         )}
