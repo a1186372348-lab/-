@@ -248,6 +248,7 @@ export default function App() {
   } | null>(null);
   const [showInputBar, setShowInputBar] = useState(false);
   const unlistenMoveRef = useRef<(() => void) | null>(null);
+  const unlistenFocusRef = useRef<(() => void) | null>(null);
   const petAreaRef = useRef<HTMLDivElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
   const showHoverMenuRef = useRef(false);
@@ -330,9 +331,12 @@ export default function App() {
     return stopPoll;
   }, [disturbMode, applyDim]);
 
-  // 缁勪欢鍗歌浇鏃跺彇娑堜富绐楀彛 move 鐩戝惉
+  // 组件卸载时取消主窗口事件监听
   useEffect(() => {
-    return () => { unlistenMoveRef.current?.(); };
+    return () => {
+      unlistenMoveRef.current?.();
+      unlistenFocusRef.current?.();
+    };
   }, []);
 
   // 鍒濆鍖栵細鏁版嵁搴撱€佸緟鍔炪€佸ぉ姘斻€佹彁閱掓湇鍔?
@@ -552,10 +556,22 @@ export default function App() {
         }
       });
       unlistenMoveRef.current = unlisten;
+
+      // 窗口失焦（最小化 / 其他窗口获焦）→ 重置悬停 ref，防止低干扰模式被卡住
+      // 用 Tauri 原生事件，比 window.blur 在 WebView2 里更可靠
+      const unlistenFocus = await mainWin.onFocusChanged(({ payload: focused }) => {
+        if (!focused) {
+          isPetHoveredRef.current = false;
+          isInputHoveredRef.current = false;
+          isInputFocusedRef.current = false;
+          applyDim();
+        }
+      });
+      unlistenFocusRef.current = unlistenFocus;
     };
 
     initWindows();
-  }, []);
+  }, [applyDim]);
 
   const handleTodoBtnEnter = () => {
     if (todoHideTimer) clearTimeout(todoHideTimer);

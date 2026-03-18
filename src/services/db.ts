@@ -401,6 +401,36 @@ export async function upsertMemory(
   );
 }
 
+/** 对话驱动的记忆纠正：将含 oldKeyword 的旧记忆标记为 superseded，写入新记忆 */
+export async function correctMemory(
+  oldKeyword: string,
+  newContent: string,
+  factType: string,
+  subjectRole: string,
+  importance: number,
+): Promise<void> {
+  const database = await getDb();
+
+  // 将含旧关键词的 active 记忆标记为 superseded
+  if (oldKeyword.trim()) {
+    await database.execute(
+      `UPDATE user_memories
+         SET status = 'superseded', updated_at = datetime('now','localtime')
+       WHERE status = 'active' AND content LIKE $1`,
+      [`%${oldKeyword.trim()}%`]
+    );
+  }
+
+  // 写入新记忆，confirmed_count=2 表示已由用户明确确认
+  await database.execute(
+    `INSERT INTO user_memories
+       (category, fact_type, subject_role, content, importance,
+        embedding, embedding_model, confirmed_count, status, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NULL, NULL, 2, 'active', datetime('now','localtime'))`,
+    [factType, factType, subjectRole, newContent.trim(), Math.min(5, importance + 1)]
+  );
+}
+
 /** Hybrid 检索：向量相似 × 0.50 + importance × 0.25 + 近期度 × 0.15 + 关键词 × 0.10
  *  identity/preference 类近期度恒为 1.0，候选池 30 条去重后取 limit 条 */
 export async function getRelevantMemories(

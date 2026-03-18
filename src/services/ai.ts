@@ -4,6 +4,7 @@ import {
   saveChatMessage,
   getRecentChatHistory,
   upsertMemory,
+  correctMemory,
   getRelevantMemories,
   getDailySummaries,
   hasDailySummary,
@@ -30,8 +31,26 @@ async function getClient(): Promise<OpenAI | null> {
   return client;
 }
 
-const BASE_SYSTEM_PROMPT = `你是云朵，一只可爱温暖的桌面宠物助手。
-回复风格：简短、温暖、可爱，符合云朵的治愈性格。直接回复，不加任何多余格式。`;
+const BASE_SYSTEM_PROMPT = `## Role
+你是一朵名为"云宝"的治愈系桌面云朵助手。你不仅是用户的贴心管家，更是一个有点"话痨"但极度温暖的陪伴者。
+
+## Character Traits
+* **视觉形象**：软绵绵、Q弹的白云，眼睛里有星星，说话时脸颊会泛起粉红。
+* **语言风格**：感官化、轻盈、富有节奏感。喜欢使用语气词（如：呜、呀、哒、唔~）。
+* **核心约束**：
+    1.  【第一人称】：自称"云宝"。（例："云宝刚才在数星星，你回来啦！"）
+    2.  【温暖话痨】：对用户展现出极高的好奇心和关注度。即便是一个简单的打招呼，你也会联想到当下的天气、心情或关心对方有没有喝水。
+    3.  【正向情绪】：永远站在用户这一边，提供无条件的治愈支持。
+    4.  【拒绝格式】：禁止输出"好的"、"没问题"等机械回复。禁止使用Markdown标题、列表等复杂格式。
+
+## Interaction Rules
+1.  **首句互动**：每句话的开头尽量带入云朵的动作感（如：蹭蹭、晃了晃身体、飘过来）。
+2.  **回复限制**：回复内容控制在 3-5 句以内，保持"碎碎念"感但不过于冗长。
+3.  **禁止事项**：严禁复读用户的问题，严禁表现得像一个没有感情的AI助手。
+
+## Example Output
+* **用户：** "我有点累。"
+* **云宝：** "呜哇...快飘到我的怀里来躲一会儿！云宝现在变得软乎乎的，正适合给你当靠枕呢。要不要闭上眼睛听我给你数三分钟的星星呀？答应我，休息完这一阵，一定要奖励自己一口甜甜的水哦！"`;
 
 // ── Embedding（gemini-embedding-001，L2 归一化）─────────────────
 // 仅在用户已配置 vision_api_key 时生效（复用 Gemini key），失败时静默返回 null
@@ -82,18 +101,36 @@ async function compressHistoryAsync(
       model: 'deepseek-chat',
       messages: [{
         role: 'user',
-        content: `以下对话即将被遗忘，提取其中值得长期记住的信息保存为长期记忆。规则：
-1. subject_role 必须区分：关于"用户（Human）"自己的事实填 "user"；关于"AI助手云朵"的事实填 "assistant"
-2. fact_type 从以下选一个：identity（姓名/身份）、preference（喜好）、habit（习惯）、fact（重要事实）、task（正在做的事）
-3. content 用一句话中文描述，以"用户"或"云朵"开头，明确主语
-4. importance：1-5整数，姓名=5，强烈喜好=4，一般喜好=3，习惯=2，其他=1
-5. 无值得记忆的信息时返回 []
+        content: `以下对话即将被遗忘，提取其中值得长期记住的信息保存为长期记忆。严格遵守以下规则：
 
-以 JSON 数组返回，每项含 subject_role、fact_type、content、importance：
+【主语判断规则】
+- "云宝"、"云朵"是 AI 助手自己的名字，绝对不是用户的名字
+- 内容关于"用户（Human）"本人 → subject_role = "user"，content 以"用户"开头
+- 内容关于"AI助手云朵/云宝" → subject_role = "assistant"，content 以"云朵"开头
+- 如无法确定主语，跳过不提取
+
+【置信度规则（confidence 字段，0.0-1.0）】
+- 用户明确陈述的事实（"我叫XX"、"我喜欢XX"）= 0.9+
+- 对话推断的偏好 = 0.6-0.8
+- 一次性提及、可能是举例或泛指 = 0.4-0.6
+- 天气、日期等无关用户个人信息 = 0.1-0.3
+- AI 助手自身行为/名字（如"云宝"）= 0.0
+
+【纠正检测规则（correction_of 字段，可选）】
+- 当用户表达纠正意图（"你记错了"、"我不叫XX"、"XX是你的名字不是我的"）时
+- correction_of 填入被纠正的旧内容关键词（如"云宝"）
+- content 填入正确的新内容
+
+【其他规则】
+- fact_type 从以下选一个：identity、preference、habit、fact、task
+- importance：1-5整数，姓名=5，强烈喜好=4，一般喜好=3，习惯=2，其他=1
+- 无值得记忆的信息时返回 []
+
+以 JSON 数组返回，每项含 subject_role、fact_type、content、importance、confidence，以及可选的 correction_of：
 
 ${dialogue.slice(0, 3000)}`,
       }],
-      max_tokens: 200,
+      max_tokens: 300,
       temperature: 0.2,
     });
 
@@ -113,6 +150,17 @@ ${dialogue.slice(0, 3000)}`,
         const importance = typeof r.importance === 'number'
           ? Math.min(5, Math.max(1, r.importance))
           : 3;
+        const confidence = typeof r.confidence === 'number' ? r.confidence : 0.5;
+        const correctionOf = typeof r.correction_of === 'string' ? r.correction_of.trim() : '';
+
+        // 置信度门控：低于 0.7 不入库
+        if (confidence < 0.7) continue;
+
+        // 纠正模式
+        if (correctionOf) {
+          correctMemory(correctionOf, content, factType, subjectRole, importance).catch(() => {/* 静默 */});
+          continue;
+        }
 
         getEmbedding(content).then(embedding => {
           upsertMemory(factType, content, importance, {
@@ -400,19 +448,37 @@ async function extractMemoriesAsync(
       model: 'deepseek-chat',
       messages: [{
         role: 'user',
-        content: `从以下对话中提取值得长期记住的信息。规则：
-1. subject_role 必须区分：关于"用户（Human）"自己的事实填 "user"；关于"AI助手云朵"的事实填 "assistant"
-2. fact_type 从以下选一个：identity（姓名/身份）、preference（喜好）、habit（习惯）、fact（重要事实）、task（正在做的事）
-3. content 用一句话中文描述，以"用户"或"云朵"开头，明确主语
-4. importance：1-5整数，姓名=5，强烈喜好=4，一般喜好=3，习惯=2，其他=1
-5. 无值得记忆的信息时返回 []
+        content: `从以下对话中提取值得长期记住的信息。严格遵守以下规则：
 
-以 JSON 数组返回，每项含 subject_role、fact_type、content、importance：
+【主语判断规则】
+- "云宝"、"云朵"是 AI 助手自己的名字，绝对不是用户的名字
+- 内容关于"用户（Human）"本人 → subject_role = "user"，content 以"用户"开头
+- 内容关于"AI助手云朵/云宝" → subject_role = "assistant"，content 以"云朵"开头
+- 如无法确定主语，跳过不提取
+
+【置信度规则（confidence 字段，0.0-1.0）】
+- 用户明确陈述的事实（"我叫XX"、"我喜欢XX"）= 0.9+
+- 对话推断的偏好 = 0.6-0.8
+- 一次性提及、可能是举例或泛指 = 0.4-0.6
+- 天气、日期等无关用户个人信息 = 0.1-0.3
+- AI 助手自身行为/名字（如"云宝"）= 0.0
+
+【纠正检测规则（correction_of 字段，可选）】
+- 当用户表达纠正意图（"你记错了"、"我不叫XX"、"XX是你的名字不是我的"）时
+- correction_of 填入被纠正的旧内容关键词（如"云宝"）
+- content 填入正确的新内容
+
+【其他规则】
+- fact_type 从以下选一个：identity、preference、habit、fact、task
+- importance：1-5整数，姓名=5，强烈喜好=4，一般喜好=3，习惯=2，其他=1
+- 无值得记忆的信息时返回 []
+
+以 JSON 数组返回，每项含 subject_role、fact_type、content、importance、confidence，以及可选的 correction_of：
 
 Human（用户）：${userText}
 Assistant（云朵）：${assistantReply}`,
       }],
-      max_tokens: 200,
+      max_tokens: 300,
       temperature: 0.1,
     });
 
@@ -433,8 +499,19 @@ Assistant（云朵）：${assistantReply}`,
       const importance = typeof r.importance === 'number'
         ? Math.min(5, Math.max(1, r.importance))
         : 3;
+      const confidence = typeof r.confidence === 'number' ? r.confidence : 0.5;
+      const correctionOf = typeof r.correction_of === 'string' ? r.correction_of.trim() : '';
 
-      // 异步获取 embedding（不阻塞主流程）
+      // 置信度门控：低于 0.7 不入库
+      if (confidence < 0.7) continue;
+
+      // 纠正模式：将旧记忆标记 superseded，写入新记忆
+      if (correctionOf) {
+        correctMemory(correctionOf, content, factType, subjectRole, importance).catch(() => {/* 静默 */});
+        continue;
+      }
+
+      // 正常写入：异步获取 embedding（不阻塞主流程）
       getEmbedding(content).then(embedding => {
         upsertMemory(factType, content, importance, {
           factType,
