@@ -12,9 +12,10 @@ dist
 dist-ssr
 *.local
 
-# Claude Code 本地配置
+# Claude Code 本地配置（不进 git）
 .claude/settings.local.json
 .claude/hooks/hook-events.log
+.claude/CLAUDE.md
 
 # Editor directories and files
 .vscode/*
