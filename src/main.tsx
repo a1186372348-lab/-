@@ -5,6 +5,7 @@ import TodoPage from "./components/TodoPage";
 import SettingsPage from "./components/SettingsPage";
 import FocusPage from "./components/FocusPage";
 import SpeechBubblePage from "./components/SpeechBubblePage";
+import SchedulerPage from "./components/SchedulerPage";
 
 const page = new URLSearchParams(window.location.search).get('page');
 
@@ -13,6 +14,7 @@ function Root() {
   if (page === 'settings') return <SettingsPage />;
   if (page === 'focus') return <FocusPage />;
   if (page === 'speech-bubble') return <SpeechBubblePage />;
+  if (page === 'scheduler') return <SchedulerPage />;
   return <App />;
 }
 

@@ -87,6 +87,22 @@
         "shadow": false,
         "x": 0,
         "y": 0
+      },
+      {
+        "title": "云宝定时",
+        "label": "scheduler",
+        "url": "/?page=scheduler",
+        "width": 306,
+        "height": 459,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false,
+        "x": 0,
+        "y": 0
       }
     ],
     "security": {

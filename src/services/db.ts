@@ -1,5 +1,5 @@
 import Database from '@tauri-apps/plugin-sql';
-import { Todo, Priority } from '../types';
+import { Todo, Priority, ScheduledTask } from '../types';
 
 let db: Database | null = null;
 
@@ -58,6 +58,18 @@ const MIGRATIONS = `
     date_key TEXT NOT NULL UNIQUE,
     summary TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now','localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS scheduled_tasks (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    trigger_mode TEXT NOT NULL DEFAULT 'daily',
+    daily_time TEXT,
+    interval_minutes INTEGER,
+    action TEXT NOT NULL DEFAULT 'notify',
+    is_enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    last_triggered_at TEXT
   );
 `;
 
@@ -548,4 +560,75 @@ export async function getMessagesForCompression(
      ORDER BY id ASC`,
     [keepCount]
   );
+}
+
+// ── 定时任务 CRUD ────────────────────────────────────────────
+
+export async function fetchScheduledTasks(): Promise<ScheduledTask[]> {
+  const database = await getDb();
+  const rows = await database.select<any[]>(
+    'SELECT * FROM scheduled_tasks ORDER BY created_at ASC'
+  );
+  return rows.map((r) => ({
+    ...r,
+    interval_minutes: r.interval_minutes ?? null,
+    daily_time: r.daily_time ?? null,
+    last_triggered_at: r.last_triggered_at ?? null,
+  }));
+}
+
+export async function insertScheduledTask(task: {
+  title: string;
+  trigger_mode: 'daily' | 'interval';
+  daily_time: string | null;
+  interval_minutes: number | null;
+}): Promise<ScheduledTask> {
+  const database = await getDb();
+  const now = new Date().toISOString();
+  const newTask: ScheduledTask = {
+    id: crypto.randomUUID(),
+    title: task.title,
+    trigger_mode: task.trigger_mode,
+    daily_time: task.daily_time,
+    interval_minutes: task.interval_minutes,
+    action: 'notify',
+    is_enabled: 1,
+    created_at: now,
+    // interval 模式：预填 last_triggered_at 为当前时间，等待完整间隔后首次触发
+    // daily 模式：null，今日到时间即可触发
+    last_triggered_at: task.trigger_mode === 'interval' ? now : null,
+  };
+  await database.execute(
+    `INSERT INTO scheduled_tasks
+       (id, title, trigger_mode, daily_time, interval_minutes, action, is_enabled, created_at, last_triggered_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      newTask.id, newTask.title, newTask.trigger_mode,
+      newTask.daily_time, newTask.interval_minutes,
+      newTask.action, newTask.is_enabled,
+      newTask.created_at, newTask.last_triggered_at,
+    ]
+  );
+  return newTask;
+}
+
+export async function updateScheduledTaskTitle(id: string, title: string): Promise<void> {
+  const database = await getDb();
+  await database.execute(
+    'UPDATE scheduled_tasks SET title = $1 WHERE id = $2',
+    [title, id]
+  );
+}
+
+export async function updateScheduledTaskLastTriggered(id: string): Promise<void> {
+  const database = await getDb();
+  await database.execute(
+    'UPDATE scheduled_tasks SET last_triggered_at = $1 WHERE id = $2',
+    [new Date().toISOString(), id]
+  );
+}
+
+export async function deleteScheduledTask(id: string): Promise<void> {
+  const database = await getDb();
+  await database.execute('DELETE FROM scheduled_tasks WHERE id = $1', [id]);
 }

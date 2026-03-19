@@ -21,3 +21,17 @@ export interface Todo {
   completed_at: string | null;
   last_reminded_at: string | null;
 }
+
+export type ScheduleTriggerMode = 'daily' | 'interval';
+
+export interface ScheduledTask {
+  id: string;
+  title: string;
+  trigger_mode: ScheduleTriggerMode;
+  daily_time: string | null;        // "HH:MM"，仅 daily 模式有效
+  interval_minutes: number | null;  // 仅 interval 模式有效
+  action: 'notify';
+  is_enabled: number;               // 1=启用 0=禁用
+  created_at: string;
+  last_triggered_at: string | null;
+}

@@ -12,6 +12,7 @@ import { startWeatherSync } from './services/weather';
 import { startReminderService } from './services/reminder';
 import { startColorSampler, stopColorSampler } from './services/colorSampler';
 import { startTimeCycleService } from './services/timeCycle';
+import { startSchedulerService } from './services/scheduler';
 import CloudPet from './components/CloudPet';
 import InputBar from './components/InputBar';
 import HoverMenu from './components/HoverMenu';
@@ -37,11 +38,14 @@ let settingsShowTimer: ReturnType<typeof setTimeout> | null = null;
 let settingsHideTimer: ReturnType<typeof setTimeout> | null = null;
 let focusShowTimer: ReturnType<typeof setTimeout> | null = null;
 let focusHideTimer: ReturnType<typeof setTimeout> | null = null;
+let schedulerShowTimer: ReturnType<typeof setTimeout> | null = null;
+let schedulerHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 // 鍏夋爣杞锛氳褰曞瓙绐楀彛鍙鐘舵€佸拰鐗╃悊杈圭晫
 let todoVisible = false;
 let settingsVisible = false;
 let focusVisible = false;
+let schedulerVisible = false;
 
 // 浣庡共鎵拌眮鍏嶏細浠绘剰浜や簰鍙戠敓鏃惰皟鐢紝閫氱煡缁勪欢閲嶆柊璁＄畻閫忔槑搴?
 let onInteractionChange: (() => void) | null = null;
@@ -49,6 +53,7 @@ type Bounds = { x: number; y: number; w: number; h: number };
 let todoBounds: Bounds | null = null;
 let settingsBounds: Bounds | null = null;
 let focusBounds: Bounds | null = null;
+let schedulerBounds: Bounds | null = null;
 let cursorPollTimer: ReturnType<typeof setInterval> | null = null;
 
 function stopCursorPoll() {
@@ -60,9 +65,10 @@ function startCursorPoll() {
   let prevInsideTodo = false;
   let prevInsideSettings = false;
   let prevInsideFocus = false;
+  let prevInsideScheduler = false;
 
   cursorPollTimer = setInterval(async () => {
-    if (!todoVisible && !settingsVisible && !focusVisible) { stopCursorPoll(); return; }
+    if (!todoVisible && !settingsVisible && !focusVisible && !schedulerVisible) { stopCursorPoll(); return; }
 
     const [cx, cy]: [number, number] = await invoke('get_cursor_position');
 
@@ -101,10 +107,52 @@ function startCursorPoll() {
         if (!focusHideTimer) focusHideTimer = setTimeout(hideFocusWindow, 500);
       }
     }
+
+    if (schedulerVisible && schedulerBounds) {
+      const inside = cx >= schedulerBounds.x && cx < schedulerBounds.x + schedulerBounds.w
+                  && cy >= schedulerBounds.y && cy < schedulerBounds.y + schedulerBounds.h;
+      if (inside && !prevInsideScheduler) {
+        prevInsideScheduler = true;
+        if (schedulerHideTimer) { clearTimeout(schedulerHideTimer); schedulerHideTimer = null; }
+      } else if (!inside && prevInsideScheduler) {
+        prevInsideScheduler = false;
+        if (!schedulerHideTimer) schedulerHideTimer = setTimeout(hideSchedulerWindow, 500);
+      }
+    }
   }, 150);
 }
 
+async function showSchedulerWindow() {
+  // 互斥：先隐藏 todo
+  await hideTodoWindow();
+  const schedulerWin = await WebviewWindow.getByLabel('scheduler');
+  if (!schedulerWin) return;
+  const mainWin = getCurrentWindow();
+  const mainPos = await mainWin.outerPosition();
+  const sf = await mainWin.scaleFactor();
+  const schedulerWidth = 306, gap = 8;
+  await schedulerWin.setPosition(new LogicalPosition(mainPos.x / sf - schedulerWidth - gap, mainPos.y / sf));
+  await schedulerWin.show();
+  const pos = await schedulerWin.outerPosition();
+  const size = await schedulerWin.outerSize();
+  schedulerBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
+  schedulerVisible = true;
+  startCursorPoll();
+}
+
+async function hideSchedulerWindow() {
+  const schedulerWin = await WebviewWindow.getByLabel('scheduler');
+  if (!schedulerWin) return;
+  const visible = await schedulerWin.isVisible();
+  if (visible) await schedulerWin.hide();
+  schedulerVisible = false;
+  schedulerBounds = null;
+  if (!todoVisible && !settingsVisible && !focusVisible) stopCursorPoll();
+}
+
 async function showTodoWindow() {
+  // 互斥：先隐藏 scheduler
+  await hideSchedulerWindow();
   const todoWin = await WebviewWindow.getByLabel('todo-manager');
   if (!todoWin) return;
   const mainWin = getCurrentWindow();
@@ -129,7 +177,7 @@ async function hideTodoWindow() {
   todoVisible = false;
   todoBounds = null;
   onInteractionChange?.();
-  if (!settingsVisible) stopCursorPoll();
+  if (!settingsVisible && !focusVisible && !schedulerVisible) stopCursorPoll();
 }
 
 async function showSettingsWindow() {  const settingsWin = await WebviewWindow.getByLabel('settings');
@@ -159,7 +207,7 @@ async function hideSettingsWindow() {
   settingsVisible = false;
   settingsBounds = null;
   onInteractionChange?.();
-  if (!todoVisible) stopCursorPoll();
+  if (!todoVisible && !focusVisible && !schedulerVisible) stopCursorPoll();
 }
 
 async function showFocusWindow() {
@@ -344,6 +392,7 @@ export default function App() {
     let stopWeather: ReturnType<typeof setInterval>;
     let stopReminder: () => void;
     let stopTimeCycle: () => void;
+    let stopScheduler: () => void;
 
     const init = async () => {
       // 纭繚涓荤獥鍙ｈ幏寰楃劍鐐癸紝鍚﹀垯閫忔槑绐楀彛鍦?Windows 涓婁笉浼氭敹鍒伴紶鏍囨偓鍋滀簨浠?
@@ -375,6 +424,13 @@ export default function App() {
       stopTimeCycle = startTimeCycleService((period) => {
         setExpression(period.expression);
         if (period.greeting) showSpeech(period.greeting, 6000);
+      });
+
+      // 定时任务服务：触发时以气泡提醒
+      stopScheduler = startSchedulerService((task) => {
+        setExpression('happy');
+        showSpeech(`⏰ 提醒：${task.title}`, 7000);
+        setTimeout(() => setExpression('default'), 3000);
       });
 
       // 璁剧疆淇濆瓨鍚庨噸缃?AI 瀹㈡埛绔紦瀛樺苟鏇存柊鎻愰啋闂撮殧
@@ -478,6 +534,7 @@ export default function App() {
       if (stopWeather) clearInterval(stopWeather);
       if (stopReminder) stopReminder();
       if (stopTimeCycle) stopTimeCycle();
+      if (stopScheduler) stopScheduler();
       stopColorSampler();
       stopScreenMonitor();
     };
@@ -554,6 +611,17 @@ export default function App() {
             physPos.y / sf + CLOUD_TOP_OFFSET - BUBBLE_WIN_H,
           ));
         }
+        const scw = await WebviewWindow.getByLabel('scheduler');
+        if (scw) {
+          await scw.setPosition(
+            new LogicalPosition(physPos.x / sf - todoWidth - gap, physPos.y / sf)
+          );
+          if (schedulerVisible) {
+            const pos = await scw.outerPosition();
+            const size = await scw.outerSize();
+            schedulerBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
+          }
+        }
       });
       unlistenMoveRef.current = unlisten;
 
@@ -574,6 +642,10 @@ export default function App() {
   }, [applyDim]);
 
   const handleTodoBtnEnter = () => {
+    // 互斥：取消 scheduler 的显示计时，并隐藏 scheduler
+    if (schedulerShowTimer) { clearTimeout(schedulerShowTimer); schedulerShowTimer = null; }
+    if (schedulerHideTimer) { clearTimeout(schedulerHideTimer); schedulerHideTimer = null; }
+    hideSchedulerWindow();
     if (todoHideTimer) clearTimeout(todoHideTimer);
     todoShowTimer = setTimeout(showTodoWindow, 200);
   };
@@ -601,6 +673,20 @@ export default function App() {
   const handleSettingsBtnLeave = () => {
     if (settingsShowTimer) clearTimeout(settingsShowTimer);
     settingsHideTimer = setTimeout(hideSettingsWindow, 500);
+  };
+
+  const handleSchedulerBtnEnter = () => {
+    // 互斥：取消 todo 的显示计时，并隐藏 todo
+    if (todoShowTimer) { clearTimeout(todoShowTimer); todoShowTimer = null; }
+    if (todoHideTimer) { clearTimeout(todoHideTimer); todoHideTimer = null; }
+    hideTodoWindow();
+    if (schedulerHideTimer) clearTimeout(schedulerHideTimer);
+    schedulerShowTimer = setTimeout(showSchedulerWindow, 200);
+  };
+
+  const handleSchedulerBtnLeave = () => {
+    if (schedulerShowTimer) clearTimeout(schedulerShowTimer);
+    schedulerHideTimer = setTimeout(hideSchedulerWindow, 500);
   };
 
   // 閲嶇疆绌洪棽璁℃椂鍣紙鐢ㄦ埛鏈変氦浜掓椂璋冪敤锛?
@@ -780,6 +866,8 @@ export default function App() {
           onFocusBtnLeave={handleFocusBtnLeave}
           onSettingsBtnEnter={handleSettingsBtnEnter}
           onSettingsBtnLeave={handleSettingsBtnLeave}
+          onSchedulerBtnEnter={handleSchedulerBtnEnter}
+          onSchedulerBtnLeave={handleSchedulerBtnLeave}
           onMenuEnter={handleMenuZoneEnter}
           onMenuLeave={handleMenuZoneLeave}
         />

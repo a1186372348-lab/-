@@ -9,6 +9,8 @@ interface HoverMenuProps {
   onFocusBtnLeave: () => void;
   onSettingsBtnEnter: () => void;
   onSettingsBtnLeave: () => void;
+  onSchedulerBtnEnter: () => void;
+  onSchedulerBtnLeave: () => void;
   onMenuEnter: () => void;
   onMenuLeave: () => void;
 }
@@ -21,6 +23,8 @@ export default function HoverMenu({
   onFocusBtnLeave,
   onSettingsBtnEnter,
   onSettingsBtnLeave,
+  onSchedulerBtnEnter,
+  onSchedulerBtnLeave,
   onMenuEnter,
   onMenuLeave,
 }: HoverMenuProps) {
@@ -69,6 +73,18 @@ export default function HoverMenu({
           >
             <svg className="menu-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41L9.25 5.35c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94L2.86 14.52c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+          </button>
+
+          {/* 定时 */}
+          <button
+            className="menu-item"
+            data-label="定时"
+            onMouseEnter={onSchedulerBtnEnter}
+            onMouseLeave={onSchedulerBtnLeave}
+          >
+            <svg className="menu-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2a9 9 0 1 0 0 18A9 9 0 0 0 12 2zm0 16a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm.5-11H11v6l5.25 3.15.75-1.23L12.5 13V7zM7.88 3.39 6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM22 5.72l-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72z"/>
             </svg>
           </button>
         </motion.div>
