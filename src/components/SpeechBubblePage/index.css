@@ -19,9 +19,8 @@ html, body, #root {
 .speech-bubble {
   position: relative;
   min-width: 160px;
-  max-width: 210px;
-  max-height: 170px;
-  overflow: hidden;          /* 溢出裁切，无滚动条 */
+  max-width: 220px;
+  overflow: hidden;          /* 超过 max-height 时裁切 */
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
@@ -39,13 +38,13 @@ html, body, #root {
   font-weight: 500;
   text-align: center;
   word-break: break-word;
-  overflow-y: scroll;        /* JS scrollTop 可控，但滚动条不可见 */
-  max-height: 150px;
-  scrollbar-width: none;     /* Firefox */
+  max-height: 180px;
+  overflow: hidden;          /* 超过上限时裁切，不显示滚动条 */
+  scrollbar-width: none;
 }
 
 .speech-text::-webkit-scrollbar {
-  display: none;             /* Chrome / WebView2 */
+  display: none;
 }
 
 /* 尾巴朝下，指向气泡窗口下方的云朵 */
