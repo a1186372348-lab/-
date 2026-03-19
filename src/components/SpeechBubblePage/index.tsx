@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { LogicalSize } from '@tauri-apps/api/dpi';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
+
+// 气泡尾巴高度 + 窗口与气泡之间的留白
+const TAIL_HEIGHT = 8;
+const WINDOW_PADDING = 4;
 
 export default function SpeechBubblePage() {
   const [text, setText] = useState('');
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const textRef = useRef<HTMLParagraphElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
 
   const clearTimer = () => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -20,11 +25,26 @@ export default function SpeechBubblePage() {
     getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
   }, []);
 
-  // 文字更新后滚动到底部（裁切顶部内容，保留最新文字）
-  const scrollToBottom = () => {
-    const el = textRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  };
+  // 根据气泡实际 DOM 尺寸同步窗口大小
+  const syncWindowSize = useCallback(() => {
+    const el = bubbleRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const w = Math.ceil(rect.width) + WINDOW_PADDING * 2;
+    const h = Math.ceil(rect.height) + TAIL_HEIGHT + WINDOW_PADDING * 2;
+    getCurrentWindow().setSize(new LogicalSize(w, h)).catch(() => {});
+  }, []);
+
+  // 用 ResizeObserver 监听气泡尺寸变化（流式追加文字时实时响应）
+  useEffect(() => {
+    const el = bubbleRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      if (visible) syncWindowSize();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visible, syncWindowSize]);
 
   useEffect(() => {
     getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
@@ -62,24 +82,21 @@ export default function SpeechBubblePage() {
     };
   }, [dismiss]);
 
-  // text 变化时滚到底部
-  useEffect(() => {
-    scrollToBottom();
-  }, [text]);
-
   return (
     <div className="bubble-window">
       <AnimatePresence>
         {visible && (
           <motion.div
+            ref={bubbleRef}
             className="speech-bubble"
             initial={{ opacity: 0, y: 8, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.92 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
+            onAnimationComplete={syncWindowSize}
             onClick={dismiss}
           >
-            <p className="speech-text" ref={textRef}>{text}</p>
+            <p className="speech-text">{text}</p>
             <div className="bubble-tail" />
           </motion.div>
         )}
