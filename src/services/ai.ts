@@ -11,6 +11,7 @@ import {
   getChatHistoryByDate,
   saveDailySummary,
   getMessagesForCompression,
+  insertScheduledTask,
 } from './db';
 
 let client: OpenAI | null = null;
@@ -240,6 +241,7 @@ function normalizeHistory(
 export async function chatStream(
   userText: string,
   onChunk: (delta: string) => void,
+  onScheduleCreated?: () => void,
 ): Promise<void> {
   const ai = await getClient();
 
@@ -302,6 +304,12 @@ export async function chatStream(
     await saveChatMessage('user', userText);
     await saveChatMessage('assistant', fullReply);
     extractMemoriesAsync(ai, userText, fullReply);
+    extractScheduleIntentAsync(ai, userText).then(async (task) => {
+      if (task) {
+        await insertScheduledTask(task);
+        onScheduleCreated?.();
+      }
+    }).catch(() => {});
   } catch {
     await saveChatMessage('user', userText).catch(() => {});
     onChunk('出了点小问题，稍后再试试吧 ~');
@@ -525,5 +533,49 @@ Assistant（云朵）：${assistantReply}`,
     }
   } catch {
     // 静默失败
+  }
+}
+
+// ── 定时任务意图解析（每次 chat 后异步触发） ──────────────────
+async function extractScheduleIntentAsync(
+  ai: OpenAI,
+  userText: string,
+): Promise<{ title: string; trigger_mode: 'daily' | 'interval'; daily_time: string | null; interval_minutes: number | null } | null> {
+  try {
+    const completion = await ai.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [{
+        role: 'user',
+        content: `判断以下用户输入是否包含"设置定时提醒/任务"的意图。
+识别关键词：每X分钟、每X小时、每天X点、每隔X、提醒我、定时、每天早上/晚上/下午。
+
+如果包含定时意图，返回如下 JSON（不要加 markdown 代码块）：
+{"title":"任务简短名称","trigger_mode":"daily"|"interval","daily_time":"HH:MM"|null,"interval_minutes":数字|null}
+
+规则：
+- trigger_mode="daily" 时 daily_time 填 "HH:MM" 格式，interval_minutes 填 null
+- trigger_mode="interval" 时 interval_minutes 填分钟数，daily_time 填 null
+- title 提炼用户想被提醒的事情，不超过20字
+- 如果没有定时意图，只返回 null（不带引号，不加任何其他内容）
+
+用户输入：${userText}`,
+      }],
+      max_tokens: 80,
+      temperature: 0.1,
+    });
+
+    const raw = (completion.choices[0]?.message?.content ?? '').trim();
+    if (raw === 'null' || !raw) return null;
+    const json = raw.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    const parsed = JSON.parse(json) as {
+      title: string;
+      trigger_mode: 'daily' | 'interval';
+      daily_time: string | null;
+      interval_minutes: number | null;
+    };
+    if (!parsed.title || !parsed.trigger_mode) return null;
+    return parsed;
+  } catch {
+    return null;
   }
 }

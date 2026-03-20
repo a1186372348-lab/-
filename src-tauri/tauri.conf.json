@@ -30,7 +30,7 @@
         "label": "speech-bubble",
         "url": "/?page=speech-bubble",
         "width": 240,
-        "height": 1,
+        "height": 120,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

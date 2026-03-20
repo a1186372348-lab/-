@@ -253,9 +253,9 @@ export default function App() {
   } = useAppStore();
 
   // ── 气泡窗口控制 ─────────────────────────────────────────────
-  // 云朵顶部距主窗口顶部约 70px（逻辑像素），气泡窗口高 210px
+  // 云朵顶部距主窗口顶部约 40px（逻辑像素），气泡窗口高 120px
   const CLOUD_TOP_OFFSET = 40;
-  const BUBBLE_WIN_H = 210;
+  const BUBBLE_WIN_H = 120;
   const bubbleReadyRef = useRef(false); // 记录气泡窗口是否已首次 show（WebView 已初始化）
 
   const showSpeech = useCallback(async (text: string, durationMs = 5000) => {

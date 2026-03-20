@@ -12,7 +12,7 @@ html, body, #root {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 0;
+  padding-bottom: 8px; /* 为尾巴（bottom: -8px）留出空间，防止被窗口边界裁剪 */
   background: transparent;
 }
 
@@ -38,7 +38,7 @@ html, body, #root {
   font-weight: 500;
   text-align: center;
   word-break: break-word;
-  max-height: 180px;
+  max-height: 80px;
   overflow: hidden;          /* 超过上限时裁切，不显示滚动条 */
   scrollbar-width: none;
 }
