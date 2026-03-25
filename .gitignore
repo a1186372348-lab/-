@@ -16,6 +16,9 @@ dist-ssr
 .claude/settings.local.json
 .claude/hooks/hook-events.log
 .claude/CLAUDE.md
+src-tauri/target-codex/
+src-tauri/target-codex*/
+nul
 
 # Editor directories and files
 .vscode/*
