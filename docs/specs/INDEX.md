@@ -34,7 +34,9 @@
 
 | 需求卡 | 功能名称 | 状态 |
 |---|---|---|
-| （待补充） | | |
+| [MAIN-WINDOW.md](./MAIN-WINDOW.md) | 主窗口（云朵桌面伴侣） | shipped |
+| [SPEECH-BUBBLE.md](./SPEECH-BUBBLE.md) | 语音气泡窗口 | shipped |
+| [SETTINGS.md](./SETTINGS.md) | 设置窗口 | shipped |
 
 ---
 
