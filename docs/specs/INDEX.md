@@ -49,6 +49,7 @@
 ## 导航
 
 - [功能状态矩阵](./FEATURE_MATRIX.md)
+- [项目路线图](./ROADMAP.md)
 - [返回项目状态](../PROJECT_STATUS.md)
 - [开发成长入口](../../DEVELOPMENT_GUIDE.md)
 - [功能需求模板](../FEATURE_SPEC_TEMPLATE.md)
