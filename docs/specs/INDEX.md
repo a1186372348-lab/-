@@ -40,6 +40,9 @@
 | [TODO.md](./TODO.md) | 待办管理 | shipped |
 | [SCHEDULER.md](./SCHEDULER.md) | 定时任务 | shipped |
 | [REMINDER.md](./REMINDER.md) | 提醒服务 | shipped |
+| [FOCUS.md](./FOCUS.md) | 专注模式 | shipped |
+| [AI-CHAT.md](./AI-CHAT.md) | AI 对话 | shipped |
+| [MEMORY.md](./MEMORY.md) | 记忆系统 | shipped |
 
 ---
 

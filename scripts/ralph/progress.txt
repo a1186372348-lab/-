@@ -19,3 +19,121 @@
   - `.agents/` 和 `.cursor/` 内部结构一致（都有 skills/ 子目录和 .DS_Store），可能是同一工具体系的不同配置
   - `src-tauri/` 下有 `target-codex/` 和 `target-codexv9z1Sq/` 等临时构建目录，已在 .gitignore 中排除
 ---
+
+### Validation 2026-04-17 14:30 - US-001 - PASS
+- Summary: 全部 5 项验收标准通过
+- Evidence:
+  - AC1: `docs/ROOT_STRUCTURE.md` 存在（112行），含顶层目录和顶层文件两张完整表格
+  - AC2: 特定资产处理结论覆盖全部 5 项（__MACOSX/.agents/.cursor/scripts:ralph/test-bubble.ps1）
+  - AC3: cloudpet-mcp 定位为「独立子项目，与主应用同仓维护」，含依据和关系说明
+  - AC4: commit 963d586 仅新增 docs/ROOT_STRUCTURE.md（+111行），零删除，无源文件/构建/数据库误删
+  - AC5: `npx tsc --noEmit` 零错误
+---
+
+## 2026-04-17 15:20 - US-002
+- 创建 `docs/PROJECT_STATUS.md`，包含项目概述、当前目标、进行中工作、近期完成事项、下一步最小动作、主要风险阻塞、导航链接
+- 内容基于当前仓库实际状态填写，包括 PRD 进度表、近期 git 提交记录、已知工程风险
+- 更改的文件: `docs/PROJECT_STATUS.md`（新增）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - `docs/SESSION_LOG.md` 最后更新时间是 2026-03-25，部分内容已过时（如"正在训练定时任务需求卡"），但作为过程记录未修改
+  - 项目状态文档需要与 SESSION_LOG.md 保持职责区分：PROJECT_STATUS 面向"项目事实"，SESSION_LOG 面向"协作过程"
+---
+
+### Validation 2026-04-17 22:00 - US-003 - FAIL
+- Summary: US-003 完全未实现，所有 4 项 AC 均未通过
+- Evidence:
+  - AC1: `docs/specs/` 目录不存在（Glob 返回空）
+  - AC2: 无模板或索引文档定义需求卡必含字段
+  - AC3: 无导航链接指向 specs 目录（因目录不存在）
+  - AC4: 跳过（前置条件未满足）
+- Root Cause: Story 未被任何开发迭代拾取实现
+- notes 已写入 prd.json
+---
+
+## 2026-04-17 23:10 - US-003
+- 创建 `docs/specs/` 目录作为功能需求卡的统一存放位置
+- 创建 `docs/specs/INDEX.md` 索引文档，定义必含字段（目标、用户路径、输入/输出、业务规则、边界异常、当前状态、验收清单）和文件命名规范
+- 在 `DEVELOPMENT_GUIDE.md` 的"先看什么"列表中添加功能需求卡目录链接
+- 在 `docs/PROJECT_STATUS.md` 的导航列表中添加功能需求卡目录链接
+- 更改的文件: `docs/specs/INDEX.md`（新增）, `DEVELOPMENT_GUIDE.md`（更新导航）, `docs/PROJECT_STATUS.md`（更新导航）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - `docs/FEATURE_SPEC_TEMPLATE.md` 已存在且结构完整，INDEX.md 直接引用该模板而非重复定义
+  - 需求卡的状态值应统一使用：`idea` / `planned` / `in-progress` / `shipped` / `paused`（后续 US-007 的 FEATURE_MATRIX 需与此保持一致）
+  - 导航入口有两个：`DEVELOPMENT_GUIDE.md`（工程入口）和 `docs/PROJECT_STATUS.md`（状态入口），两者都需同步更新
+---
+
+### Validation 2026-04-17 23:30 - US-004 - FAIL
+- Summary: US-004 完全未实现，所有 4 项 AC 均未通过
+- Evidence:
+  - AC1: `docs/specs/` 下仅有 `INDEX.md`，无 main-window / speech-bubble / settings 需求卡文件
+  - AC2: 无需求卡文件存在，无法检查字段完整性
+  - AC3: 无需求卡文件存在，无法检查内容风格
+  - AC4: `npx tsc --noEmit` 通过，但因无交付物此项无意义
+- Root Cause: Story 未被任何开发迭代拾取实现
+- notes 已写入 prd.json
+---
+
+## 2026-04-17 23:50 - US-004
+- 创建 `docs/specs/MAIN-WINDOW.md`、`docs/specs/SPEECH-BUBBLE.md`、`docs/specs/SETTINGS.md` 三张功能需求卡
+- 每张卡包含：目标、用户路径、输入/输出、业务规则、边界与异常、当前状态、验收清单、本次不做什么
+- 更新 `docs/specs/INDEX.md` 索引，补充三张需求卡链接和状态
+- 更改的文件: `docs/specs/MAIN-WINDOW.md`（新增）, `docs/specs/SPEECH-BUBBLE.md`（新增）, `docs/specs/SETTINGS.md`（新增）, `docs/specs/INDEX.md`（更新索引表）
+- **未来迭代的学习：**
+  - 需求卡内容基于源码实际行为编写，而非 PRD 描述，确保卡片与当前实现一致
+  - `speech:show` 的 duration=0 表示不自动关闭（流式传输期间），`speech:done` 才启动关闭计时
+  - 设置项存储在 SQLite `settings` 表中，key-value 格式，所有值以字符串形式存储
+  - 主窗口 App.tsx 是核心协调层，管理所有子窗口的互斥显示和位置同步
+---
+
+### Validation 2026-04-17 24:00 - US-004 - PASS
+- Summary: 全部 4 项验收标准通过
+- Evidence:
+  - AC1: `docs/specs/MAIN-WINDOW.md`、`SPEECH-BUBBLE.md`、`SETTINGS.md` 均存在，INDEX.md 索引表已更新
+  - AC2: 三张卡片均含目标(§2)、用户路径(§3)、输入/输出(§4)、业务规则(§5)、边界与异常(§6)、当前状态(§7)、验收清单(§9)
+  - AC3: 描述行为（用户看到什么、操作链路、事件合约、数据流），无组件结构/函数实现等代码级细节
+  - AC4: `npx tsc --noEmit` 零错误
+  - Commit 9889b53 仅含 4 文件（+348/-1），无源文件误删
+---
+
+## 2026-04-17 24:30 - US-005
+- 创建 `docs/specs/TODO.md`、`docs/specs/SCHEDULER.md`、`docs/specs/REMINDER.md` 三张功能需求卡
+- 每张卡包含：目标、用户路径、输入/输出、业务规则、边界与异常、当前状态、验收清单、本次不做什么
+- 明确三个模块的数据边界和触发边界：
+  - Todo：通过 todos/todo_history 两张表管理待办数据，支持 AI 创建待办（轮询同步）
+  - Scheduler：独立 scheduled_tasks 表，60 秒轮询，daily/interval 两种触发模式
+  - Reminder：复用 todos 表的 last_reminded_at 字段，按优先级和冷却时间选择待办提醒
+- 更新 `docs/specs/INDEX.md` 索引，补充三张需求卡链接和状态
+- 更改的文件: `docs/specs/TODO.md`（新增）, `docs/specs/SCHEDULER.md`（新增）, `docs/specs/REMINDER.md`（新增）, `docs/specs/INDEX.md`（更新索引表）
+- **未来迭代的学习：**
+  - Todo/Scheduler/Reminder 三个模块共享同一数据库（zhushou.db），但各有独立的数据表
+  - Reminder 不是独立窗口，而是后台服务，通过 App.tsx 集成到主窗口（表情 + 音效 + 气泡）
+  - Scheduler 和 TodoPage 使用相同的子窗口位置（主窗口左侧），互斥显示
+  - 这三个模块都没有专门的 Rust Tauri commands，全部通过 tauri-plugin-sql 前端直接操作 SQLite
+---
+
+### Validation 2026-04-17 25:00 - US-005 - PASS
+- Summary: 全部 4 项验收标准通过
+- Evidence:
+  - AC1: `docs/specs/TODO.md`、`SCHEDULER.md`、`REMINDER.md` 均存在，INDEX.md 索引表已更新
+  - AC2: 三张卡片均含目标(§2)、用户路径(§3)、输入/输出(§4)、业务规则(§5)、边界与异常(§6)、当前状态(§7)、验收清单(§9)
+  - AC3: 数据边界和触发边界均明确：Todo（todos/todo_history 两表 + AI 轮询 1 秒 + 归档凌晨 5:00）、Scheduler（scheduled_tasks 表 + 60 秒轮询 + daily/interval 模式）、Reminder（todos.last_reminded_at + settings 表 + setTimeout 递归 + 冷却机制）
+  - AC4: `npx tsc --noEmit` 零错误
+---
+
+## 2026-04-17 26:00 - US-006
+- 创建 `docs/specs/FOCUS.md`、`docs/specs/AI-CHAT.md`、`docs/specs/MEMORY.md` 三张功能需求卡
+- 每张卡包含：目标、用户路径、输入/输出、业务规则、边界与异常、当前状态、验收清单、本次不做什么
+- 明确三个模块的行为边界：
+  - Focus：番茄钟计时器，专注/休息双阶段自动切换，通过 Tauri 事件与主窗口联动，无数据持久化
+  - AI Chat：流式对话（DeepSeek API）+ 屏幕感知主动发言（Gemini/GLM 视觉）+ 上下文记忆注入 + 定时任务意图识别
+  - Memory：自动提取（对话后异步）+ 混合检索（向量 0.50 + 重要性 0.25 + 近期度 0.15 + 关键词 0.10）+ 去重 + 纠正 + 历史压缩 + 日摘要
+- AI-CHAT.md 和 MEMORY.md 严格区分了用户可见行为（对话流式回复、个性化记忆）和实现细节（嵌入向量、评分算法）
+- 更新 `docs/specs/INDEX.md` 索引，补充三张需求卡链接和状态
+- 更改的文件: `docs/specs/FOCUS.md`（新增）, `docs/specs/AI-CHAT.md`（新增）, `docs/specs/MEMORY.md`（新增）, `docs/specs/INDEX.md`（更新索引表）
+- **未来迭代的学习：**
+  - Focus 模块是唯一没有数据库持久化的功能模块（专注数据仅在内存中）
+  - AI 对话使用 OpenAI SDK 兼容接口调用 DeepSeek API，不是直接调用 Anthropic API
+  - 记忆系统的嵌入向量通过 Gemini API 生成（复用 `vision_api_key`），L2 归一化后存储
+  - 屏幕监控服务每 30 秒截图，通过哈希去重避免重复分析，3 分钟节流防止频繁发言
+  - 三个模块共享同一数据库（zhushou.db），但各有独立的数据表
+---
