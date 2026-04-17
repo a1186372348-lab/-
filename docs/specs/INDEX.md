@@ -37,6 +37,9 @@
 | [MAIN-WINDOW.md](./MAIN-WINDOW.md) | 主窗口（云朵桌面伴侣） | shipped |
 | [SPEECH-BUBBLE.md](./SPEECH-BUBBLE.md) | 语音气泡窗口 | shipped |
 | [SETTINGS.md](./SETTINGS.md) | 设置窗口 | shipped |
+| [TODO.md](./TODO.md) | 待办管理 | shipped |
+| [SCHEDULER.md](./SCHEDULER.md) | 定时任务 | shipped |
+| [REMINDER.md](./REMINDER.md) | 提醒服务 | shipped |
 
 ---
 
