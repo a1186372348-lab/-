@@ -1,0 +1,21 @@
+## Codebase Patterns
+- 文档统一放在 `docs/` 目录下，协作模板、项目概述、开发清单等已存在
+- `cloudpet-mcp/` 是独立 Node.js 子项目，有独立的 package.json 和 node_modules
+- `.agents/` 和 `.cursor/` 是本地 AI 工具配置目录，已 gitignore
+- `nul` 是 Windows NUL 重定向误创建的空文件，已在 .gitignore 中排除
+- `test-bubble.ps1` 和 `__MACOSX/` 在当前仓库中不存在
+- `package.json` 已有 `check:ts`、`check:rust`、`check`、`verify` 脚本入口
+
+---
+
+## 2026-04-17 12:40 - US-001
+- 创建 `docs/ROOT_STRUCTURE.md`，盘点仓库所有顶层目录和关键散落文件，逐项记录用途和处理结论
+- 对 `__MACOSX/`、`.agents/`、`.cursor/`、`scripts/ralph/`、`test-bubble.ps1` 逐项给出处理结论
+- 明确 `cloudpet-mcp/` 定位为独立子项目、与主应用同仓维护
+- 更改的文件: `docs/ROOT_STRUCTURE.md`（新增）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - `__MACOSX/` 和 `test-bubble.ps1` 在 PRD 中被提及但实际不存在于仓库
+  - `package.json` 中已经有 `check:ts`、`check:rust`、`check`、`verify` 脚本（US-015 可能已部分完成）
+  - `.agents/` 和 `.cursor/` 内部结构一致（都有 skills/ 子目录和 .DS_Store），可能是同一工具体系的不同配置
+  - `src-tauri/` 下有 `target-codex/` 和 `target-codexv9z1Sq/` 等临时构建目录，已在 .gitignore 中排除
+---
