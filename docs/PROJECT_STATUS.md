@@ -68,6 +68,7 @@
 
 - [根目录结构说明](./ROOT_STRUCTURE.md)
 - [项目总览](./PROJECT_OVERVIEW.md)
+- [功能需求卡目录](./specs/INDEX.md)
 - [开发成长入口](../DEVELOPMENT_GUIDE.md)
 - [功能需求模板](./FEATURE_SPEC_TEMPLATE.md)
 - [开发检查清单](./DEV_CHECKLIST.md)

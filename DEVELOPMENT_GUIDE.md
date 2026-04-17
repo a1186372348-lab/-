@@ -5,12 +5,13 @@
 ## 先看什么
 
 1. [项目总览](./docs/PROJECT_OVERVIEW.md)
-2. [功能需求模板](./docs/FEATURE_SPEC_TEMPLATE.md)
-3. [开发检查清单](./docs/DEV_CHECKLIST.md)
-4. [问题排查模板](./docs/BUG_TRIAGE_TEMPLATE.md)
-5. [AI 协作手册](./docs/AI_COLLAB_PLAYBOOK.md)
-6. [会话日志](./docs/SESSION_LOG.md)
-7. [换机启动清单](./docs/SETUP_CHECKLIST.md)
+2. [功能需求卡目录](./docs/specs/INDEX.md)
+3. [功能需求模板](./docs/FEATURE_SPEC_TEMPLATE.md)
+4. [开发检查清单](./docs/DEV_CHECKLIST.md)
+5. [问题排查模板](./docs/BUG_TRIAGE_TEMPLATE.md)
+6. [AI 协作手册](./docs/AI_COLLAB_PLAYBOOK.md)
+7. [会话日志](./docs/SESSION_LOG.md)
+8. [换机启动清单](./docs/SETUP_CHECKLIST.md)
 
 ## 每次开发的固定顺序
 
