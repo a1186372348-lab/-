@@ -324,3 +324,44 @@
   - `verify` 当前实现为 `npm run check`，与 AC 要求的"执行自动检查并提示需要人工回归"之间通过文档桥接，而非脚本本身输出提示
   - TEST_STRATEGY.md 是记录检查命令职责的最佳位置，因为它是验证边界的单一事实来源
 ---
+
+## 2026-04-18 21:00 - US-016
+- 重组 docs/ 目录为四个清晰分区：architecture/（6 文件）、specs/（13 文件）、process/（6 文件）、logs/（1 文件），docs/ 根目录仅保留 PROJECT_STATUS.md 作为状态入口
+- 移动 8 个散落文件到对应子目录：ROOT_STRUCTURE.md→architecture/、PROJECT_OVERVIEW.md→architecture/、SESSION_LOG.md→logs/、AI_COLLAB_PLAYBOOK.md→process/、BUG_TRIAGE_TEMPLATE.md→process/、DEV_CHECKLIST.md→process/、SETUP_CHECKLIST.md→process/、FEATURE_SPEC_TEMPLATE.md→specs/
+- 重写 DEVELOPMENT_GUIDE.md 文档导航入口，从 8 个链接扩展为 18 个，按 5 个分区组织（项目状态与总览/功能需求卡/架构文档/开发流程/过程日志）
+- 修复全部断链：CLAUDE.md（3 处）、AGENTS.md（2 处）、PROJECT_STATUS.md（7 处）、SETUP_CHECKLIST.md（5 处）、INDEX.md（2 处）、ROADMAP.md（3 处）
+- 更改的文件: DEVELOPMENT_GUIDE.md（重写导航）, docs/PROJECT_STATUS.md（更新导航链接和引用路径）, CLAUDE.md（更新 3 处文档路径）, AGENTS.md（更新 2 处文档路径）, docs/process/SETUP_CHECKLIST.md（修复 5 处断链）, docs/specs/INDEX.md（修复 2 处断链）, docs/specs/ROADMAP.md（修复 3 处断链）, docs/PROJECT_OVERVIEW.md→docs/architecture/PROJECT_OVERVIEW.md（移动）
+- **未来迭代的学习：**
+  - docs/ 目录最终结构：architecture/（技术架构）、specs/（需求卡）、process/（开发流程）、logs/（过程日志），根目录仅保留 PROJECT_STATUS.md 作为状态入口
+  - DEVELOPMENT_GUIDE.md 是文档导航的单一事实来源，新增文档时应同步更新其导航区
+  - 移动文档后必须检查 4 类引用源：DEVELOPMENT_GUIDE.md、CLAUDE.md、AGENTS.md、docs/ 内部交叉链接
+  - SETUP_CHECKLIST.md 中的换机提示词包含硬编码文档路径，移动文档时需同步更新
+---
+
+## 2026-04-18 22:00 - US-017
+- 在 DEVELOPMENT_GUIDE.md 中新增「代码治理规则」章节，显式列出 4 条强制治理规则
+- AC1（新功能先写需求卡）：规则 1 明确要求使用 FEATURE_SPEC_TEMPLATE.md 模板
+- AC2（跨模块改动同步更新文档）：规则 2 明确要求跨模块改动在同一次提交中更新相关架构文档、事件文档、需求卡或流程文档
+- AC3（新业务逻辑不堆进 App.tsx）：规则 3 明确要求放入 src/services/ 层
+- AC4（提交前运行最小检查）：规则 4 明确要求运行 npm run check 并检查 git diff
+- AC5 typecheck 通过
+- 更改的文件: DEVELOPMENT_GUIDE.md（新增代码治理规则章节）, scripts/ralph/prd.json（更新 passes 为 true，清空 notes）
+- **未来迭代的学习：**
+  - 代码治理规则放在 DEVELOPMENT_GUIDE.md 比放在 CLAUDE.md 更合适，因为 DEVELOPMENT_GUIDE.md 是工程入口文档，CLAUDE.md 是 AI 协作指令
+  - 上次 Validator 失败的根因是 AC2（跨模块文档同步）没有任何文档显式记录，仅在 DEV_CHECKLIST.md 中有间接覆盖（"文档与代码行为一致"）
+  - 治理规则应使用明确的祈使句而非模糊描述，以便 Validator 能直接检查
+---
+
+## 2026-04-18 23:00 - US-018
+- 验证结构清理闭环：检查全部 5 项验收标准
+- AC1（文档可达性）：DEVELOPMENT_GUIDE.md 的 18 个链接和 PROJECT_STATUS.md 的 10 个链接全部指向存在的文件，无死链
+- AC2（交叉引用一致性）：修复 ROADMAP.md 中 US-009~US-017 状态从 "planned" 更新为 "shipped"；修复 PROJECT_STATUS.md 进度表和下一步动作；更新 ROADMAP.md 阶段进度条
+- AC3（最小检查路径）：DEVELOPMENT_GUIDE.md 第 59 行 → npm run check → check:ts + check:rust，路径完整无缺失步骤
+- AC4（git diff 范围）：main...HEAD 变更仅含文档文件（docs/ 27 个）和根级配置（CLAUDE.md, DEVELOPMENT_GUIDE.md, AGENTS.md, package.json）及 PRD 管理文件，无源码或构建配置变更
+- AC5：`npx tsc --noEmit` 零错误通过
+- 更改的文件: docs/specs/ROADMAP.md（更新状态和进度条）, docs/PROJECT_STATUS.md（更新进度表和下一步）, scripts/ralph/prd.json（更新 passes 为 true）, scripts/ralph/progress.txt（追加进度）
+- **未来迭代的学习：**
+  - 闭环验证时必须检查所有入口文档的"状态字段"是否与实际进度一致，不只是检查链接是否可达
+  - ROADMAP.md 的阶段进度条和 PROJECT_STATUS.md 的进度表需要与 prd.json 的 passes 状态同步更新
+  - DEVELOPMENT_GUIDE.md 是文档导航的单一事实来源，验证死链时只需从此文件出发做广度优先遍历即可覆盖全部文档
+---

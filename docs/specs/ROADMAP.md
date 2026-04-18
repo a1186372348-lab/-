@@ -20,15 +20,15 @@
 | P0 | 建立项目状态总控文档 | shipped | [PROJECT_STATUS.md](../PROJECT_STATUS.md) |
 | P0 | 功能需求卡体系（9 项核心能力） | shipped | [INDEX.md](./INDEX.md) |
 | P0 | 功能状态矩阵 | shipped | [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) |
-| P1 | 架构分层说明文档 | planned | US-009 → `docs/architecture/ARCHITECTURE.md` |
-| P1 | 事件文档 | planned | US-010 → `docs/architecture/EVENTS.md` |
-| P1 | 关键数据流文档 | planned | US-011 → `docs/architecture/DATA_FLOW.md` |
-| P1 | 技术债文档 | planned | US-012 → `docs/architecture/TECH_DEBT.md` |
-| P2 | 测试策略文档 | planned | US-013 → `docs/process/TEST_STRATEGY.md` |
-| P2 | 最小回归清单 | planned | US-014 → `docs/process/REGRESSION_CHECKLIST.md` |
-| P2 | 统一 package.json 检查脚本入口 | planned | US-015 |
-| P2 | 重组 docs 目录并修复文档导航 | planned | US-016 |
-| P2 | 固化后续代码治理规则 | planned | US-017 |
+| P1 | 架构分层说明文档 | shipped | [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) |
+| P1 | 事件文档 | shipped | [EVENTS.md](../architecture/EVENTS.md) |
+| P1 | 关键数据流文档 | shipped | [DATA_FLOW.md](../architecture/DATA_FLOW.md) |
+| P1 | 技术债文档 | shipped | [TECH_DEBT.md](../architecture/TECH_DEBT.md) |
+| P2 | 测试策略文档 | shipped | [TEST_STRATEGY.md](../process/TEST_STRATEGY.md) |
+| P2 | 最小回归清单 | shipped | [REGRESSION_CHECKLIST.md](../process/REGRESSION_CHECKLIST.md) |
+| P2 | 统一 package.json 检查脚本入口 | shipped | package.json |
+| P2 | 重组 docs 目录并修复文档导航 | shipped | DEVELOPMENT_GUIDE.md |
+| P2 | 固化后续代码治理规则 | shipped | DEVELOPMENT_GUIDE.md |
 | P2 | 验证结构清理闭环 | planned | US-018 |
 
 ---
@@ -81,8 +81,8 @@
 
 ```
 Phase 1: 结构盘点与顶层清理  [██████████] 已完成（US-001 ~ US-002）
-Phase 2: 文档体系补齐        [████░░░░░░] 进行中（US-003 ~ US-007 已完成，US-008 ~ US-012 待完成）
-Phase 3: 检查入口与治理规则  [░░░░░░░░░░] 未开始（US-013 ~ US-018）
+Phase 2: 文档体系补齐        [██████████] 已完成（US-003 ~ US-012）
+Phase 3: 检查入口与治理规则  [█████████░] 进行中（US-013 ~ US-017 已完成，US-018 验收中）
 ```
 
 ---
