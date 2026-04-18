@@ -11,11 +11,15 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+DEFAULT_PORT_SEARCH_LIMIT = 20
+
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PRD_FILE = SCRIPT_DIR / "prd.json"
 PROGRESS_FILE = SCRIPT_DIR / "progress.txt"
+AGENT_LOG_FILE = SCRIPT_DIR / "agent-output.log"
 HTML_FILE = SCRIPT_DIR / "dashboard.html"
 PIXEL_HTML_FILE = SCRIPT_DIR / "dashboard-p.html"
+AGENT_LOG_TAIL_CHARS = 8000
 
 _state: dict = {
     "iteration": 0,
@@ -70,6 +74,14 @@ def _build_api_response() -> dict:
     except Exception:
         pass
 
+    agent_output = ""
+    try:
+        if AGENT_LOG_FILE.exists():
+            text = read_utf8_text(AGENT_LOG_FILE)
+            agent_output = text[-AGENT_LOG_TAIL_CHARS:] if len(text) > AGENT_LOG_TAIL_CHARS else text
+    except Exception:
+        pass
+
     return {
         "runtime": {
             "iteration": s["iteration"],
@@ -82,6 +94,7 @@ def _build_api_response() -> dict:
         "branchName": branch_name,
         "stories": stories,
         "logs": logs,
+        "agent_output": agent_output,
     }
 
 
@@ -136,17 +149,37 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
-def start(port: int = 7331, max_iterations: int = 50, open_browser: bool = True) -> None:
+def start(port: int = 7331, max_iterations: int = 50, open_browser: bool = True) -> int | None:
     with _state_lock:
         _state["started_at"] = time.time()
         _state["max_iterations"] = max_iterations
 
-    server = HTTPServer(("127.0.0.1", port), _Handler)
+    server: HTTPServer | None = None
+    selected_port: int | None = None
+    last_error: OSError | None = None
+
+    for offset in range(DEFAULT_PORT_SEARCH_LIMIT):
+        candidate_port = port + offset
+        try:
+            server = HTTPServer(("127.0.0.1", candidate_port), _Handler)
+            selected_port = candidate_port
+            break
+        except OSError as exc:
+            last_error = exc
+
+    if server is None or selected_port is None:
+        print(f"⚠️  Dashboard 启动失败: {last_error}")
+        return None
+
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
-    url = f"http://localhost:{port}"
+    url = f"http://localhost:{selected_port}"
+    if selected_port != port:
+        print(f"⚠️  Dashboard 端口 {port} 被占用，已切换到 {selected_port}")
     print(f"🖥️  Dashboard: {url}")
 
     if open_browser:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+
+    return selected_port

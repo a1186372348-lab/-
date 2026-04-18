@@ -9,16 +9,17 @@
 1. 读取 `scripts/ralph/prd.json` 中的 PRD
 2. 读取 `scripts/ralph/progress.txt` 中的进度日志（首先检查 Codebase Patterns 部分；如果文件不存在则先按空文件处理）
 3. 检查你是否在 PRD 中 `branchName` 指定的正确 branch 上。如果不是，checkout 或从 main 创建它。
-4. 选择满足以下所有条件的**最高 priority** 的 user story：
+4. **严格按照顺序**选择 `userStories` 数组中第一个满足以下所有条件的 story：
    - `passes: false`
    - `blocked: false`（或 blocked 字段不存在）
+   **(绝对禁止跳跃：必须按数组顺序开发完当前再开发下一个)**
    
    如果该 story 的 `notes` 字段不为空，说明 Validator 上次验证发现了问题，
    请优先阅读 notes 中的失败原因，针对性地进行修复，而不是重新实现。
 5. 实现该单个 user story,只实现这一个user story的内容
-6. 运行质量检查（例如，typecheck、lint、test - 使用项目所需的任何工具）
+6. 运行局部质量检查（只针对你改动的文件运行 typecheck 或相关测试。**绝对禁止**运行全局或全量的重量级测试，节省时间且聚焦于当前 story）
 7. 如果检查通过，只提交当前 story 直接相关的更改，消息为：`feat: [Story ID] - [Story Title]`
-8. 更新 `scripts/ralph/prd.json`，将已完成的 story 的 `passes` 设置为 `true`
+8. 更新 `scripts/ralph/prd.json`，将已完成的 story 的 `passes` 设置为 `true`，**并且必须将 `notes` 字段清空为 `""`**
 9. 每次完成运行后，将你的进度追加到 `scripts/ralph/progress.txt`
 
 ## 进度报告格式
@@ -59,20 +60,15 @@
 - 仓库可能已经存在与当前 story 无关的已修改或未跟踪文件；不要回滚它们，也不要把它们混入当前 story 的提交
 - 开始前先看 `git status`，提交前再次确认本次提交只包含当前 story 相关文件
 
-## 浏览器测试（如果可用）
+## 服务启动与浏览器测试（如果可用）
 
-对于任何更改 UI 的 story，如果你配置了浏览器测试工具（例如，通过 agent-browser-skill），请在浏览器中验证它是否正常工作。
-
-重要约束：
+对于任何更改 UI 或需要验证的 story，必须按以下策略管理服务：
 
 - 优先复用**已经在运行且可访问**的本地服务；只有在确实无法访问时，才允许自行启动 dev server。
 - 如果需要启动 dev server，必须先检查目标端口是否已经可访问；可访问就直接复用，不要重复启动。
-- 启动 dev server 时必须使用**后台方式**，避免阻塞当前 agent。应根据当前系统选择命令：
-  - macOS/Linux 例如：`nohup npm run dev > /tmp/ralph-dev.log 2>&1 &`
-  - Windows PowerShell 优先使用：`powershell -ExecutionPolicy Bypass -File .\scripts\ralph\start-ralph.ps1`
-  - 如果这里只是后台启动 dev server，而不是启动 Ralph 主循环，可用：`Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','npm run dev' -RedirectStandardOutput 'scripts/ralph/ralph-dev.log' -RedirectStandardError 'scripts/ralph/ralph-dev.err.log'`
+- 当前系统为 Windows 环境，启动 dev server 时必须使用**后台方式**且不能阻塞当前 agent，例如 `Start-Process cmd -ArgumentList "/c npm run tauri dev > ralph-dev.log 2>&1" -WindowStyle Hidden`。**绝对禁止**使用 Linux 专属的 `nohup` 或后缀 `&`。
 - 启动后要先轮询确认服务可访问，再进行 agent-browser 验证。
-- 除非明确需要清理冲突进程，否则不要随意 `kill -9` 现有服务；不要每次迭代都重启 dev server。
+- 除非明确需要清理冲突进程，否则不要随意终止已有服务。需要终止进程时使用 `Stop-Process -Force` 或 `taskkill /F`，**绝对禁止**使用 `kill -9`。
 
 如果没有浏览器工具可用，请在进度报告中注明需要手动浏览器验证。
 
@@ -100,5 +96,6 @@
 
 ## 关于该项目的重要注意事项
 
-项目跟路径下读取AGENTS.md, 这是整个项目的技术架构开发指导说明, 也就是harness.
-如果需要理解项目分层、工程结构或协作规范，优先阅读仓库根目录的 `AGENTS.md`、`CLAUDE.md`、`DEVELOPMENT_GUIDE.md` 以及 `docs/` 下相关文档。
+项目根路径下读取 AGENTS.md，这是整个项目的技术架构开发指导说明。
+
+所有 story 的需求来源是根路径下的 PRD-project-structure-cleanup.md，如果你开发过程中有需求不明确的事情可以去这里查看。

@@ -281,6 +281,15 @@ function cloneFallback() {
 
 let useFallback = false;
 let dashboardData = cloneFallback();
+window._pixelLogInteractingUntil = 0;
+
+function isLogInteracting() {
+  return Date.now() < (window._pixelLogInteractingUntil || 0);
+}
+
+function markLogInteracting(ms = 2500) {
+  window._pixelLogInteractingUntil = Date.now() + ms;
+}
 
 // ═══════ SPRITES ═══════
 const SPRITES = {
@@ -403,6 +412,7 @@ setInterval(() => {
   getStories().forEach((story) => {
     charStates[story.id].frame = (charStates[story.id].frame + 1) % 2;
   });
+  if (isLogInteracting()) return;
   render();
 }, 500);
 
@@ -424,9 +434,11 @@ function scheduleIdleActions() {
         setTimeout(() => {
           if (charStates[story.id]) {
             charStates[story.id].idleAction = null;
+            if (isLogInteracting()) return;
             render();
           }
         }, 2500 + Math.random() * 2000);
+        if (isLogInteracting()) return;
         render();
       }
     }
@@ -441,6 +453,7 @@ setInterval(() => {
   if (useFallback) {
     dashboardData.runtime.elapsed++;
   }
+  if (isLogInteracting()) return;
   render();
 }, 1000);
 
@@ -458,12 +471,19 @@ async function poll() {
 
   ensureCharStates();
   scheduleIdleActions();
+  if (isLogInteracting()) return;
   render();
 }
 
 // ═══════ RENDER ═══════
 function render() {
   ensureCharStates();
+  const currentLogBody = document.querySelector('.log-body');
+  if (currentLogBody) {
+    const distanceFromBottom = currentLogBody.scrollHeight - currentLogBody.scrollTop - currentLogBody.clientHeight;
+    window._pixelLogShouldStick = distanceFromBottom < 24;
+    window._pixelLogScrollTop = currentLogBody.scrollTop;
+  }
   const stories = getStories();
   const runtime = getRuntime();
   const passedCount = stories.filter(s => s.passes === true).length;
@@ -557,7 +577,9 @@ function render() {
 
   // Log Terminal
   const sections = (dashboardData.logs || '').split(/(?=^## )/m).filter(s => s.trim());
-  html += '<div class="log-terminal"><div class="log-header"><span class="log-title">📋 Progress Log</span></div><div class="log-body">';
+  html += '<div class="log-terminal"><div class="log-header"><span class="log-title">📋 Terminal</span>';
+  html += '</div>';
+  html += '<div class="log-body">';
   sections.forEach((sec, i) => {
     const lines = sec.split('\n');
     const header = lines[0].replace(/^## /, '').trim();
@@ -569,7 +591,9 @@ function render() {
       <div class="log-sec-body">${bodyHtml}</div>
     </div>`;
   });
-  html += '</div></div></div>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
 
   // Status bar
   html += `<div class="game-status-bar">
@@ -580,9 +604,25 @@ function render() {
 
   document.getElementById('app').innerHTML = html;
 
-  // Auto-scroll log
   const logBody = document.querySelector('.log-body');
-  if (logBody) logBody.scrollTop = logBody.scrollHeight;
+  if (logBody) {
+    if (window._pixelLogShouldStick ?? true) {
+      logBody.scrollTop = logBody.scrollHeight;
+    } else {
+      logBody.scrollTop = window._pixelLogScrollTop || 0;
+    }
+    logBody.addEventListener('wheel', () => markLogInteracting(), { passive: true });
+    logBody.addEventListener('mousedown', () => markLogInteracting());
+    logBody.addEventListener('touchstart', () => markLogInteracting(), { passive: true });
+    logBody.addEventListener('scroll', () => markLogInteracting(1200), { passive: true });
+    logBody.addEventListener('click', (event) => event.stopPropagation());
+  }
+
+  const logTerminal = document.querySelector('.log-terminal');
+  if (logTerminal) {
+    logTerminal.addEventListener('mousedown', (event) => event.stopPropagation());
+    logTerminal.addEventListener('click', (event) => event.stopPropagation());
+  }
 }
 
 function toggleStory(id) {

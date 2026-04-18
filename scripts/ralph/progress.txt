@@ -365,3 +365,13 @@
   - ROADMAP.md 的阶段进度条和 PROJECT_STATUS.md 的进度表需要与 prd.json 的 passes 状态同步更新
   - DEVELOPMENT_GUIDE.md 是文档导航的单一事实来源，验证死链时只需从此文件出发做广度优先遍历即可覆盖全部文档
 ---
+
+### Validation 2026-04-18 23:30 - US-018 - PASS
+- Summary: 全部 5 项验收标准通过
+- Evidence:
+  - AC1: DEVELOPMENT_GUIDE.md 18 个链接 + PROJECT_STATUS.md 10 个链接指向的 19 个文件全部存在，无死链
+  - AC2: FEATURE_MATRIX 引用 9 张需求卡；ROADMAP 引用 10 项架构/流程文档；PROJECT_STATUS 引用 9 个导航链接；状态值 shipped/planned 在各文档间一致
+  - AC3: DEVELOPMENT_GUIDE.md:59 → npm run check → check:ts(npx tsc --noEmit) + check:rust(cargo check)，路径完整无缺失步骤
+  - AC4: main...HEAD 变更 40 文件全部为文档(docs/ 27个) + 根级配置(CLAUDE.md/DEVELOPMENT_GUIDE.md/AGENTS.md/package.json) + PRD管理(scripts/ralph/)，零源码或构建配置变更
+  - AC5: npx tsc --noEmit 零错误
+---
