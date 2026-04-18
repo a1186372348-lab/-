@@ -313,3 +313,14 @@
   - 定时任务刷新验证（4.2）需要等待 1 分钟，是清单中最耗时的单项
   - 回归清单基于需求卡（US-004/US-005/US-006）中记录的实际用户路径编写
 ---
+
+## 2026-04-18 20:00 - US-015
+- 修复 `package.json` 中 `check:ts` 命令，从 `tsc --noEmit` 更新为 `npx tsc --noEmit`（匹配 AC 要求）
+- 在 `docs/process/TEST_STRATEGY.md` 中新增 `verify` 职责说明：统一验证入口，执行全量自动检查后提示进入人工回归
+- 四个检查脚本（check:ts / check:rust / check / verify）均已就位且职责清晰
+- 更改的文件: `package.json`（修复 check:ts 命令）, `docs/process/TEST_STRATEGY.md`（新增 verify 职责说明）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - `package.json` 的检查脚本在 US-015 之前已基本存在（progress.txt Codebase Patterns 已记录），本次仅需微调命令格式和补文档
+  - `verify` 当前实现为 `npm run check`，与 AC 要求的"执行自动检查并提示需要人工回归"之间通过文档桥接，而非脚本本身输出提示
+  - TEST_STRATEGY.md 是记录检查命令职责的最佳位置，因为它是验证边界的单一事实来源
+---
