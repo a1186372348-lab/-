@@ -151,7 +151,7 @@ zhushou/
   - `MISTAKES.md`
   - `CLAUDE.md`
   - `DEVELOPMENT_GUIDE.md`
-- 需要理解系统分层时，优先读 `docs/PROJECT_OVERVIEW.md`。
+- 需要理解系统分层时，优先读 `docs/architecture/PROJECT_OVERVIEW.md`。
 - 需要澄清需求、排查问题或做回归时，使用 `docs/` 下模板文档。
 - 读取中文文档时显式按 UTF-8 处理，避免把乱码写回仓库文件。
 
@@ -183,7 +183,7 @@ npm run tauri -- dev
 | `src-tauri/src/commands/system.rs` | 系统级能力入口 |
 | `src-tauri/tauri.conf.json` | 窗口标签、尺寸和构建配置 |
 | `CLAUDE.md` | 项目级协作与事件规范 |
-| `docs/PROJECT_OVERVIEW.md` | 分层、数据流与工程风险说明 |
+| `docs/architecture/PROJECT_OVERVIEW.md` | 分层、数据流与工程风险说明 |
 
 ## 额外说明
 

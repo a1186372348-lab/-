@@ -35,7 +35,7 @@
 
 ## 近期已完成
 
-- **US-001**：盘点根目录并记录资产处理结论 — 创建了 `docs/ROOT_STRUCTURE.md`，逐项明确了顶层资产用途和处理方式
+- **US-001**：盘点根目录并记录资产处理结论 — 创建了 `docs/architecture/ROOT_STRUCTURE.md`，逐项明确了顶层资产用途和处理方式
 - **定时任务功能**：SchedulerPage + scheduler 服务 + DB 扩展已上线
 - **气泡修复**：修复位置跳变和窗口高度问题
 - **定时提醒功能**：Reminder 服务和数据库扩展已完成
@@ -66,10 +66,13 @@
 
 ## 导航
 
-- [根目录结构说明](./ROOT_STRUCTURE.md)
-- [项目总览](./PROJECT_OVERVIEW.md)
+- [开发成长入口](../DEVELOPMENT_GUIDE.md) — 完整文档导航
+- [根目录结构说明](./architecture/ROOT_STRUCTURE.md)
+- [项目总览](./architecture/PROJECT_OVERVIEW.md)
+- [架构分层说明](./architecture/ARCHITECTURE.md)
+- [技术债登记](./architecture/TECH_DEBT.md)
 - [功能需求卡目录](./specs/INDEX.md)
-- [开发成长入口](../DEVELOPMENT_GUIDE.md)
-- [功能需求模板](./FEATURE_SPEC_TEMPLATE.md)
-- [开发检查清单](./DEV_CHECKLIST.md)
-- [会话日志](./SESSION_LOG.md)
+- [功能状态矩阵](./specs/FEATURE_MATRIX.md)
+- [测试策略](./process/TEST_STRATEGY.md)
+- [最小回归清单](./process/REGRESSION_CHECKLIST.md)
+- [会话日志](./logs/SESSION_LOG.md)

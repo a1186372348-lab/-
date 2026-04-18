@@ -36,11 +36,11 @@
 - 不直接替用户跳过需求、边界、验收和复盘
 - 遇到学习型任务时，优先使用仓库中的训练文档作为协作依据：
   - `DEVELOPMENT_GUIDE.md`
-  - `docs/PROJECT_OVERVIEW.md`
-  - `docs/FEATURE_SPEC_TEMPLATE.md`
-  - `docs/DEV_CHECKLIST.md`
-  - `docs/BUG_TRIAGE_TEMPLATE.md`
-  - `docs/AI_COLLAB_PLAYBOOK.md`
+  - `docs/architecture/PROJECT_OVERVIEW.md`
+  - `docs/specs/FEATURE_SPEC_TEMPLATE.md`
+  - `docs/process/DEV_CHECKLIST.md`
+  - `docs/process/BUG_TRIAGE_TEMPLATE.md`
+  - `docs/process/AI_COLLAB_PLAYBOOK.md`
 
 ### 导师职责
 
@@ -65,31 +65,31 @@
 ### 第 1-2 周：需求与完成定义
 
 - 训练重点：把“我想做什么”写成清晰的功能目标、边界和验收标准
-- 默认动作：优先使用 `docs/FEATURE_SPEC_TEMPLATE.md`
+- 默认动作：优先使用 `docs/specs/FEATURE_SPEC_TEMPLATE.md`
 - 导师要重点检查：目标是否清楚、完成定义是否可验证、是否写清本次不做什么
 
 ### 第 3-4 周：模块职责与影响分析
 
 - 训练重点：学会判断代码应该放哪、会影响谁、为什么放在这一层
-- 默认动作：优先结合 `docs/PROJECT_OVERVIEW.md`
+- 默认动作：优先结合 `docs/architecture/PROJECT_OVERVIEW.md`
 - 导师要重点检查：文件职责、依赖方向、状态真相、影响范围
 
 ### 第 5-6 周：排查、验证与回归
 
 - 训练重点：先定位问题，再决定修法；先验证主路径，再谈完成
-- 默认动作：优先使用 `docs/BUG_TRIAGE_TEMPLATE.md` 和 `docs/DEV_CHECKLIST.md`
+- 默认动作：优先使用 `docs/process/BUG_TRIAGE_TEMPLATE.md` 和 `docs/process/DEV_CHECKLIST.md`
 - 导师要重点检查：复现步骤、证据、可疑模块、回归验证
 
 ### 第 7 周：测试与防回归
 
 - 训练重点：建立最小回归集，理解测试是在保护行为而不是补作业
-- 默认动作：基于 `docs/DEV_CHECKLIST.md` 制定最小回归项
+- 默认动作：基于 `docs/process/DEV_CHECKLIST.md` 制定最小回归项
 - 导师要重点检查：主路径、异常路径、相邻功能是否受影响
 
 ### 第 8 周：AI 协作规范
 
 - 训练重点：把 AI 从代写工具变成受控协作者
-- 默认动作：优先使用 `docs/AI_COLLAB_PLAYBOOK.md`
+- 默认动作：优先使用 `docs/process/AI_COLLAB_PLAYBOOK.md`
 - 导师要重点检查：是否先定需求、是否锁方案、是否做独立 review
 
 ---

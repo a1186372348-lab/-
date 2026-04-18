@@ -6,7 +6,7 @@
 
 ## 规范模板
 
-新增需求卡时，使用 [功能需求模板](../FEATURE_SPEC_TEMPLATE.md) 作为基础结构。
+新增需求卡时，使用 [功能需求模板](./FEATURE_SPEC_TEMPLATE.md) 作为基础结构。
 
 ## 必含字段
 
@@ -52,4 +52,4 @@
 - [项目路线图](./ROADMAP.md)
 - [返回项目状态](../PROJECT_STATUS.md)
 - [开发成长入口](../../DEVELOPMENT_GUIDE.md)
-- [功能需求模板](../FEATURE_SPEC_TEMPLATE.md)
+- [功能需求模板](./FEATURE_SPEC_TEMPLATE.md)

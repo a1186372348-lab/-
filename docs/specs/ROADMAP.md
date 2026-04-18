@@ -16,7 +16,7 @@
 
 | 优先级 | 工作项 | 状态 | 关联 |
 |---|---|---|---|
-| P0 | 根目录结构盘点与资产处理结论 | shipped | [ROOT_STRUCTURE.md](../ROOT_STRUCTURE.md) |
+| P0 | 根目录结构盘点与资产处理结论 | shipped | [ROOT_STRUCTURE.md](../architecture/ROOT_STRUCTURE.md) |
 | P0 | 建立项目状态总控文档 | shipped | [PROJECT_STATUS.md](../PROJECT_STATUS.md) |
 | P0 | 功能需求卡体系（9 项核心能力） | shipped | [INDEX.md](./INDEX.md) |
 | P0 | 功能状态矩阵 | shipped | [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) |
@@ -43,7 +43,7 @@
 4. **不建立 CI/CD 流程** — 当前为单人开发 + AI 协作，手动检查即可
 5. **不调整产品方向或 AI 能力范围** — 不改交互策略、不改模型选型
 6. **不拆分 `cloudpet-mcp/` 为独立仓库** — 保持同仓维护现状
-7. **不迁移 `docs/SESSION_LOG.md` 等过程型文档** — 不在本次清理范围内
+7. **不迁移 `docs/logs/SESSION_LOG.md` 等过程型文档** — 已在 US-016 中完成迁移
 
 ---
 
@@ -66,7 +66,7 @@
 ### 候选 C：新增功能需求开发（P1）
 
 - **动机**：当前 9 项核心功能均已上线，后续根据使用反馈决定新增优先级
-- **范围**：待定，按需求卡模板（`docs/FEATURE_SPEC_TEMPLATE.md`）先补需求卡再实现
+- **范围**：待定，按需求卡模板（`docs/specs/FEATURE_SPEC_TEMPLATE.md`）先补需求卡再实现
 - **前置条件**：治理规则（US-017）固化后，确保新功能遵循"先补卡再开发"流程
 
 ### 候选 D：自动化测试基础建设（P2）
