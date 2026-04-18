@@ -137,3 +137,94 @@
   - 屏幕监控服务每 30 秒截图，通过哈希去重避免重复分析，3 分钟节流防止频繁发言
   - 三个模块共享同一数据库（zhushou.db），但各有独立的数据表
 ---
+
+### Validation 2026-04-17 27:00 - US-006 - PASS
+- Summary: 全部 4 项验收标准通过
+- Evidence:
+  - AC1: `docs/specs/FOCUS.md`、`AI-CHAT.md`、`MEMORY.md` 均存在，INDEX.md 索引表已更新
+  - AC2: 三张卡片均含目标(§2)、用户路径(§3)、输入/输出(§4)、业务规则(§5)、边界与异常(§6)、当前状态(§7)、验收清单(§9)
+  - AC3: AI-CHAT 和 MEMORY 严格区分用户可见行为（thinking表情/流式回复/个性化记忆/纠正响应）与实现细节（DeepSeek API/Gemini嵌入/向量评分算法/并发标志）
+  - AC4: `npx tsc --noEmit` 零错误
+---
+
+## 2026-04-17 28:00 - US-007
+- 创建 `docs/specs/FEATURE_MATRIX.md`，包含功能状态矩阵
+- 矩阵覆盖全部 9 张需求卡：主窗口、语音气泡、AI 对话、设置、待办、提醒、定时任务、专注模式、记忆系统
+- 状态值统一使用：idea / planned / in-progress / shipped / paused
+- 每项功能标注优先级（P0/P1/P2）和备注说明
+- 更新 `docs/specs/INDEX.md` 导航区，添加功能状态矩阵链接
+- 更改的文件: `docs/specs/FEATURE_MATRIX.md`（新增）, `docs/specs/INDEX.md`（更新导航）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - 所有 9 项功能当前状态均为 shipped，矩阵可作为后续新增功能的状态追踪起点
+  - 状态值与 INDEX.md 中定义的规范完全一致，后续 ROADMAP（US-008）应复用相同状态枚举
+  - 优先级分级：P0（核心交互）= 主窗口 + 气泡 + AI对话；P1（任务管理）= 设置 + 待办 + 提醒；P2（增强）= 定时任务 + 专注 + 记忆
+---
+
+### Validation 2026-04-17 29:00 - US-007 - PASS
+- Summary: 全部 5 项验收标准通过
+- Evidence:
+  - AC1: `docs/specs/FEATURE_MATRIX.md` 存在（51行）
+  - AC2: 矩阵表含 #、功能名称、状态、优先级（P0/P1/P2）、需求卡链接、备注，共 9 项功能
+  - AC3: 状态定义表统一使用 idea / planned / in-progress / shipped / paused，与 INDEX.md 规范一致
+  - AC4: 全部 9 张需求卡（US-003~006 创建）均被矩阵引用：MAIN-WINDOW / SPEECH-BUBBLE / AI-CHAT / SETTINGS / TODO / REMINDER / SCHEDULER / FOCUS / MEMORY
+  - AC5: `npx tsc --noEmit` 零错误
+  - Commit c2c1c37 仅含 2 文件（+51/-0），无源文件误删
+---
+
+## 2026-04-17 30:00 - US-008
+- 创建 `docs/specs/ROADMAP.md`，包含当前阶段重点（含优先级表格）、明确暂不做事项（7 项）、下一阶段候选工作（4 个方向）、阶段划分概览
+- 更新 `docs/specs/INDEX.md` 导航区，添加路线图链接
+- 路线图状态和优先级语言与 FEATURE_MATRIX.md 保持一致（shipped/planned + P0/P1/P2）
+- 更改的文件: `docs/specs/ROADMAP.md`（新增）, `docs/specs/INDEX.md`（更新导航）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - ROADMAP.md 的阶段划分与 PRD 的 Phase 1/2/3 一一对应，后续更新路线图时需同步检查 PRD 阶段定义
+  - 下一阶段候选工作已标注前置条件（如"App.tsx 治理依赖 US-009/US-012 完成"），后续选择候选方向时应先确认前置条件是否满足
+  - 路线图的"暂不做"清单可指导后续 US-009~US-018 的范围控制：本轮不改产品能力、不重写代码、不搭 CI/CD
+---
+
+### Validation 2026-04-17 31:00 - US-009 - FAIL
+- Summary: US-009 完全未实现，3 项实质 AC 均未通过
+- Evidence:
+  - AC1: `docs/architecture/ARCHITECTURE.md` 不存在（Glob 返回空）
+  - AC2: 文件不存在，无法检查分层定义（UI layer / page coordination / service / Tauri-Rust / cloudpet-mcp）
+  - AC3: 文件不存在，无法检查 App.tsx 治理热点标记
+  - AC4: `npx tsc --noEmit` 零错误，但因无交付物此项无意义
+- Root Cause: Story 未被任何开发迭代拾取实现
+- notes 已写入 prd.json
+---
+
+## 2026-04-17 32:00 - US-009
+- 创建 `docs/architecture/ARCHITECTURE.md`，定义 5 层架构（UI Layer / Page Coordination Layer / Service Layer / Tauri-Rust Layer / cloudpet-mcp）
+- 每层包含：职责定义、边界规则（允许/禁止）、关键文件清单
+- 显式标记 `src/App.tsx` 为治理热点，附新代码放置规则
+- 包含跨层通信规则、依赖方向图、事件命名规范、新增 Tauri Command 步骤
+- 更改的文件: `docs/architecture/ARCHITECTURE.md`（新增）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - `docs/architecture/` 目录在此 story 中新建，后续 US-010/US-011/US-012 的架构文档也放在此目录
+  - AGENTS.md 已有架构与数据流章节，ARCHITECTURE.md 提供更详细的分层边界定义，两者互补
+  - 数据库完全由 JS 侧 `src/services/db.ts` 管理，Rust 侧 `db.rs` 仅保留说明注释
+  - App.tsx 约 900 行，是当前最大的单一文件，治理热点标记有助于后续重构决策
+---
+
+### Validation 2026-04-17 33:00 - US-010 - FAIL
+- Summary: US-010 完全未实现，所有 4 项 AC 均未通过
+- Evidence:
+  - AC1: `docs/architecture/EVENTS.md` 不存在（Glob 返回空）
+  - AC2: 文件不存在，无法检查事件文档内容
+  - AC3: 文件不存在，无法验证事件名是否与代码库一致
+  - AC4: `npx tsc --noEmit` 零错误，但因无交付物此项无意义
+- Root Cause: Story 未被任何开发迭代拾取实现（最近 commit 为 US-009）
+- notes 已写入 prd.json
+---
+
+## 2026-04-18 10:00 - US-010
+- 创建 `docs/architecture/EVENTS.md`，记录 17 个事件，含事件总表（发送方/接收方/用途）、Payload 格式、通信方式说明、已知问题、新增事件检查清单
+- 事件文档基于源码实际调用编写，覆盖全部 emit/emitTo/listen 调用点
+- 修复文件内绝对 Windows 路径链接为纯文本引用
+- 更改的文件: `docs/architecture/EVENTS.md`（新增）, `scripts/ralph/prd.json`（更新 passes）, `scripts/ralph/progress.txt`（追加进度）
+- **未来迭代的学习：**
+  - `docs/architecture/` 目录已有 ARCHITECTURE.md（US-009 创建），EVENTS.md 作为同级架构文档
+  - FocusPage 对 focus-start/pause/reset/tick 同时使用 `emit` 和 `emitTo('main', ...)` 双重发送，属于已知遗留模式
+  - 部分事件存在孤立端：`todo-mouse-enter/leave` 只有发送无监听、`speech:hide` 和 `scheduler:reload` 只有监听无发送
+  - speech:* 系列事件在 App.tsx 中使用 `emit()` 而非 `emitTo('speech-bubble', ...)`，属于遗留广播模式
+---
