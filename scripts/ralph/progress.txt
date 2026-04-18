@@ -228,3 +228,53 @@
   - 部分事件存在孤立端：`todo-mouse-enter/leave` 只有发送无监听、`speech:hide` 和 `scheduler:reload` 只有监听无发送
   - speech:* 系列事件在 App.tsx 中使用 `emit()` 而非 `emitTo('speech-bubble', ...)`，属于遗留广播模式
 ---
+
+### Validation 2026-04-18 12:00 - US-010 - PASS
+- Summary: 全部 4 项验收标准通过
+- Evidence:
+  - AC1: `docs/architecture/EVENTS.md` 存在（96行），含事件总表、Payload 格式、通信方式说明、已知问题、新增事件检查清单
+  - AC2: 17 个事件均含事件名、发送方、接收方、用途描述；Payload 格式表单独列出全部事件的字段说明
+  - AC3: 全部 17 个事件名与代码库 emit/emitTo/listen 调用完全匹配；CLAUDE.md 事件表中的事件均在 EVENTS.md 中有详细记录
+  - AC4: `npx tsc --noEmit` 零错误
+---
+
+## 2026-04-18 14:00 - US-011
+- 创建 `docs/architecture/DATA_FLOW.md`，覆盖 5 个核心模块的运行时数据流
+- 每个流程标注：主要输入、处理层、持久化/副作用、可观察输出
+- Todo: CRUD + 1秒轮询同步 + 跨日归档(05:00日切分点)
+- Reminder: setTimeout递归调度 + 冷却=间隔 + 单轮单提醒 + 优先级排序
+- Scheduler: 60秒轮询 + daily/interval双模式 + scheduler:reload孤立监听
+- Chat: 流式对话(DeepSeek) + 屏幕感知主动发言(Gemini/GLM视觉) + 上下文三层注入(历史/摘要/记忆)
+- Memory: 实时提取 + 历史压缩 + 混合检索打分(向量0.50+重要性0.25+近期度0.15+关键词0.10) + 三阶段去重 + 纠正
+- 包含跨模块数据流总览图和关键约束说明
+- 更改的文件: `docs/architecture/DATA_FLOW.md`（新增）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - Reminder 的调度间隔与冷却阈值耦合为同一数值，无法独立配置
+  - AI 不直接创建 Todo，而是通过 extractScheduleIntentAsync 创建 scheduled_tasks
+  - Chat 的记忆注入分三层：短期(20条对话历史)、中期(2天日摘要)、长期(混合检索15条记忆)
+  - 屏幕习惯记忆每10分钟写入一次，importance=2，与对话记忆共存于 user_memories 表
+  - 所有数据库操作由 JS 侧 tauri-plugin-sql 完成，Rust 侧不直接操作数据库
+---
+
+### Validation 2026-04-18 15:00 - US-011 - PASS
+- Summary: 全部 4 项验收标准通过
+- Evidence:
+  - AC1: `docs/architecture/DATA_FLOW.md` 存在（308行），含 5 大模块 + 跨模块总览图
+  - AC2: 覆盖 Todo（4子流程）、Reminder（1子流程+设计要点）、Scheduler（3子流程）、Chat（2子流程）、Memory（5子流程）
+  - AC3: 每个子流程均以「输入→处理→持久化→输出」四段式结构描述，包含关键文件表
+  - AC4: `npx tsc --noEmit` 零错误
+---
+
+## 2026-04-18 16:00 - US-012
+- 创建 `docs/architecture/TECH_DEBT.md`，记录 8 条技术债，覆盖严重程度分级（高/中/低）
+- 5 条必记问题全部覆盖：App.tsx 过重(TD-001)、轮询偏多(TD-002)、事件边界松散(TD-003)、状态真相可能重复(TD-004)、人工验证成本高(TD-005)
+- 额外记录 3 条从架构和数据流分析中发现的问题：Reminder 调度间隔与冷却耦合(TD-006)、数据库操作全在 JS 侧(TD-007)、AI 对话上下文组装集中度不足(TD-008)
+- 每条技术债包含：问题现象、当前影响、建议处理方向、是否阻塞后续开发
+- 包含严重程度分布表和治理优先级建议（短期/中期/长期）
+- 更改的文件: `docs/architecture/TECH_DEBT.md`（新增）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - 技术债文档与 ARCHITECTURE.md、DATA_FLOW.md、EVENTS.md 三份文档互补：架构定义"应该怎样"，技术债记录"哪里不符合"
+  - PRD 要求的 5 条必记问题中，App.tsx 过重是唯一标记为"高严重程度"且"阻塞后续开发"的项
+  - 事件边界松散（TD-003）与 EVENTS.md 的"已知问题"一节有重叠，后续修复事件时应同步更新两份文档
+  - 严重程度定义表应在后续持续维护，新增技术债时需对照此表分级
+---
