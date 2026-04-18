@@ -300,3 +300,16 @@
   - 项目当前没有 test 脚本（package.json 中无 test 命令），自动化检查仅覆盖编译期
   - L2 人工验收的触发条件明确列出了 5 种代码改动场景，可作为 code review 检查清单
 ---
+
+## 2026-04-18 18:00 - US-014
+- 创建 `docs/process/REGRESSION_CHECKLIST.md`，包含 6 大模块共 19 项可观测验证操作
+- 清单覆盖：主窗口显示（3 项）、子窗口打开（6 项）、待办基本操作（4 项）、定时任务刷新（3 项）、专注状态变化（4 项）、语音气泡显示（3 项）
+- 每项验证操作格式统一：「验证操作」+「通过标准」，描述具体可观测行为而非模糊声明
+- 包含结果记录表和使用方式说明
+- 更改的文件: `docs/process/REGRESSION_CHECKLIST.md`（新增）, `scripts/ralph/prd.json`（更新 passes）
+- **未来迭代的学习：**
+  - `docs/process/` 目录在 US-013 中创建，REGRESSION_CHECKLIST.md 与 TEST_STRATEGY.md 同目录
+  - TEST_STRATEGY.md 第 112 行已引用 `docs/process/REGRESSION_CHECKLIST.md`，创建后链接即生效
+  - 定时任务刷新验证（4.2）需要等待 1 分钟，是清单中最耗时的单项
+  - 回归清单基于需求卡（US-004/US-005/US-006）中记录的实际用户路径编写
+---
