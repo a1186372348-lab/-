@@ -375,3 +375,17 @@
   - AC4: main...HEAD 变更 40 文件全部为文档(docs/ 27个) + 根级配置(CLAUDE.md/DEVELOPMENT_GUIDE.md/AGENTS.md/package.json) + PRD管理(scripts/ralph/)，零源码或构建配置变更
   - AC5: npx tsc --noEmit 零错误
 ---
+
+## 2026-04-19 10:00 - US-001
+- 在 `tasks/prd-layer-1-architecture.md` 中新增「US-001 交付：src/App.tsx 职责盘点与归属标记」章节
+- 职责总表包含 17 项职责（R-01 ~ R-17），覆盖页面组装、用户交互入口、窗口编排（show/hide、位置同步、bounds/光标、hover 延时/互斥、气泡控制）、服务启动与清理、运行时配置响应、事件桥接（待办/专注/CC）、AI 表现协调、本地 UI State、低干扰/穿透/presence 控制、空闲计时
+- 每项职责标注当前行号范围和唯一未来主归属层（薄协调层 4 项、窗口编排层 8 项、应用运行时层 5 项）
+- 包含归属层汇总表和本步骤边界声明（只识别归类，不定义 hook/API/文件拆分）
+- 包含「为什么必须先盘点再拆分」的独立段落，解释盘点作为事实基础的必要性
+- 更改的文件: `tasks/prd-layer-1-architecture.md`（新增职责盘点章节）, `scripts/ralph/prd.json`（更新 US-001 passes 为 true）
+- **未来迭代的学习：**
+  - App.tsx 当前约 900 行，窗口编排相关职责占比最大（8/17），是 Layer 1 迁移的主要工作量
+  - 模块级变量（L21-L57）分属窗口编排层（timer/visible/bounds）和运行时层（idleTimer），迁移时需按归属分开处理
+  - R-13（本地 UI State）跨多层：纯展示状态留在薄协调层，窗口 ref 随窗口编排层迁出，服务 ref 随运行时层迁出——后续 US-002 定义白名单时需呼应此拆分
+  - showSpeech（R-07）虽然涉及气泡窗口的位置和显示，但也被 AI 表现协调（R-12）和事件桥接（R-10/R-11）调用，迁移时需确保调用链不断裂
+---
