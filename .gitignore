@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Python cache artifacts
+__pycache__/
+*.pyc
 
 # Claude Code 本地配置（不进 git）
 .claude/settings.local.json
