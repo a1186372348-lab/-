@@ -29,7 +29,19 @@ npm run check:rust
 
 # 全量自动检查（推荐）
 npm run check
+
+# 验证入口（执行全量自动检查，通过后提示进入人工回归）
+npm run verify
 ```
+
+### `verify` 职责
+
+`npm run verify` 是提交前的统一验证入口，职责为：
+
+1. 执行全量自动化检查（`check:ts` + `check:rust`）
+2. 自动检查通过后，开发者应继续按 [最小回归清单](./REGRESSION_CHECKLIST.md) 执行人工验收
+
+`verify` 只覆盖编译期自动化检查，不替代人工回归。通过 `verify` 不等于功能验证完成。
 
 ### 覆盖范围
 
