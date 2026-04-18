@@ -278,3 +278,25 @@
   - 事件边界松散（TD-003）与 EVENTS.md 的"已知问题"一节有重叠，后续修复事件时应同步更新两份文档
   - 严重程度定义表应在后续持续维护，新增技术债时需对照此表分级
 ---
+
+### Validation 2026-04-18 16:30 - US-012 - PASS
+- Summary: 全部 4 项验收标准通过
+- Evidence:
+  - AC1: `docs/architecture/TECH_DEBT.md` 存在（128行），含 8 条技术债、严重程度定义表、治理优先级建议
+  - AC2: 5 条必记问题全部覆盖：App.tsx 过重(TD-001)、轮询偏多(TD-002)、事件边界松散(TD-003)、状态真相可能重复(TD-004)、人工验证成本高(TD-005)
+  - AC3: 每条技术债均含问题现象、当前影响、建议方向、是否阻塞后续开发四字段，格式统一
+  - AC4: `npx tsc --noEmit` 零错误
+  - Commit 67b4073 仅含 3 文件（+179/-1），无源文件误删
+---
+
+## 2026-04-18 17:00 - US-013
+- 验证 `docs/process/TEST_STRATEGY.md` 已存在且内容完整（由前次迭代 commit ecf38dc 创建）
+- 文档区分三层验证：L1 自动化静态检查（TypeScript 编译 + Rust 编译）、L2 人工验收检查（桌面交互/视觉/多窗口）、L3 故意不覆盖（多显示器/DPI/网络异常等）
+- 明确列出多窗口行为、透明度、鼠标穿透、系统托盘、窗口位置联动为必须人工验证的场景
+- 更改的文件: `scripts/ralph/prd.json`（更新 US-013 passes 为 true）
+- **未来迭代的学习：**
+  - `docs/process/` 目录在前次迭代中已创建，后续 US-014 的 REGRESSION_CHECKLIST.md 也放在此目录
+  - TEST_STRATEGY.md 引用了 REGRESSION_CHECKLIST.md（US-014 创建），当前该文件尚不存在
+  - 项目当前没有 test 脚本（package.json 中无 test 命令），自动化检查仅覆盖编译期
+  - L2 人工验收的触发条件明确列出了 5 种代码改动场景，可作为 code review 检查清单
+---
