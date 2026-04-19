@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { emit, emitTo } from '@tauri-apps/api/event';
+import { typedEmit, typedEmitTo } from '../../events';
 import './index.css';
 
 type Phase = 'focus' | 'rest';
@@ -36,7 +36,7 @@ export default function FocusPage() {
     setTotalSecs(secs);
     setRemainSecs(secs);
     setRunning(false);
-    emitTo('main', 'focus-phase-change', { phase: nextPhase, remainSecs: secs });
+    typedEmitTo('main', 'focus-phase-change', { phase: nextPhase, remainSecs: secs });
   }, [focusDuration, restDuration]);
 
   useEffect(() => {
@@ -50,8 +50,9 @@ export default function FocusPage() {
           return 0;
         }
         const next = prev - 1;
-        emit('focus-tick', { phase, remainSecs: next });
-        emitTo('main', 'focus-tick', { phase, remainSecs: next });
+        // TODO US-022: 移除冗余广播
+        typedEmit('focus-tick', { phase, remainSecs: next });
+        typedEmitTo('main', 'focus-tick', { phase, remainSecs: next });
         return next;
       });
     }, 1000);
@@ -60,11 +61,13 @@ export default function FocusPage() {
 
   const handleToggle = () => {
     if (!running) {
-      emit('focus-start', { phase, remainSecs, task });
-      emitTo('main', 'focus-start', { phase, remainSecs, task });
+      // TODO US-022: 移除冗余广播
+      typedEmit('focus-start', { phase, remainSecs, task });
+      typedEmitTo('main', 'focus-start', { phase, remainSecs, task });
     } else {
-      emit('focus-pause', { phase, remainSecs });
-      emitTo('main', 'focus-pause', { phase, remainSecs });
+      // TODO US-022: 移除冗余广播
+      typedEmit('focus-pause', { phase, remainSecs });
+      typedEmitTo('main', 'focus-pause', { phase, remainSecs });
     }
     setRunning(r => !r);
   };
@@ -75,8 +78,9 @@ export default function FocusPage() {
     const secs = (phase === 'focus' ? focusDuration : restDuration) * 60;
     setTotalSecs(secs);
     setRemainSecs(secs);
-    emit('focus-reset', { phase });
-    emitTo('main', 'focus-reset', { phase });
+    // TODO US-022: 移除冗余广播
+    typedEmit('focus-reset', { phase });
+    typedEmitTo('main', 'focus-reset', { phase });
   };
 
   const handleFocusChange = (v: number) => {
@@ -106,8 +110,8 @@ export default function FocusPage() {
   return (
     <div
       className="fp-root"
-      onMouseEnter={() => emitTo('main', 'focus-mouse-enter')}
-      onMouseLeave={() => emitTo('main', 'focus-mouse-leave')}
+      onMouseEnter={() => typedEmitTo('main', 'focus-mouse-enter', {} as Record<string, never>)}
+      onMouseLeave={() => typedEmitTo('main', 'focus-mouse-leave', {} as Record<string, never>)}
     >
       {/* 标题 + 重置按钮 */}
       <div className="fp-titlebar">
