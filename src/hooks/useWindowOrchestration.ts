@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
@@ -6,8 +6,13 @@ import { invoke } from '@tauri-apps/api/core';
 // ── 内部类型 ──────────────────────────────────────────────
 type Bounds = { x: number; y: number; w: number; h: number };
 
+// ── Hook 参数 ─────────────────────────────────────────────
+interface WindowOrchestrationOpts {
+  onInteractionChange?: () => void;
+}
+
 // ── Hook ──────────────────────────────────────────────────
-export function useWindowOrchestration() {
+export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
   // 子窗口可见性跟踪
   const todoVisibleRef = useRef(false);
   const settingsVisibleRef = useRef(false);
@@ -40,6 +45,19 @@ export function useWindowOrchestration() {
 
   // 过渡期交互回调（低干扰模式通知）
   const onInteractionChangeRef = useRef<(() => void) | null>(null);
+
+  // 气泡窗口联动常量
+  const CLOUD_TOP_OFFSET = 40;
+  const BUBBLE_WIN_H = 120;
+
+  // 主窗口事件清理函数
+  const unlistenMoveRef = useRef<(() => void) | null>(null);
+  const unlistenFocusRef = useRef<(() => void) | null>(null);
+
+  // 同步外部传入的 onInteractionChange 到 ref
+  useEffect(() => {
+    onInteractionChangeRef.current = opts?.onInteractionChange ?? null;
+  }, [opts?.onInteractionChange]);
 
   // ── 光标轮询：停止 ──────────────────────────────────────
   const stopCursorPoll = useCallback(() => {
@@ -317,6 +335,88 @@ export function useWindowOrchestration() {
     startCursorPoll();
   }, []);
 
+  // ── 窗口初始化与联动 ──────────────────────────────────────
+  useEffect(() => {
+    const initWindows = async () => {
+      const mainWin = getCurrentWindow();
+      const mainPos = await mainWin.outerPosition();
+      const mainSize = await mainWin.outerSize();
+      const sf = await mainWin.scaleFactor();
+      const todoWidth = 306, gap = 8;
+
+      // 初始定位 todo 窗口
+      const todoWin = await WebviewWindow.getByLabel('todo-manager');
+      if (todoWin) {
+        await todoWin.setPosition(
+          new LogicalPosition(mainPos.x / sf - todoWidth - gap, mainPos.y / sf),
+        );
+      }
+
+      // 主窗口移动 → 子窗口跟随
+      const unlisten = await mainWin.onMoved(async ({ payload: physPos }) => {
+        const tw = await WebviewWindow.getByLabel('todo-manager');
+        if (tw) {
+          await tw.setPosition(
+            new LogicalPosition(physPos.x / sf - todoWidth - gap, physPos.y / sf),
+          );
+          if (todoVisibleRef.current) {
+            const pos = await tw.outerPosition();
+            const size = await tw.outerSize();
+            todoBoundsRef.current = { x: pos.x, y: pos.y, w: size.width, h: size.height };
+          }
+        }
+        const sw = await WebviewWindow.getByLabel('settings');
+        if (sw) {
+          await sw.setPosition(
+            new LogicalPosition(physPos.x / sf + mainSize.width / sf + gap, physPos.y / sf),
+          );
+          if (settingsVisibleRef.current) {
+            const pos = await sw.outerPosition();
+            const size = await sw.outerSize();
+            settingsBoundsRef.current = { x: pos.x, y: pos.y, w: size.width, h: size.height };
+          }
+        }
+        const bw = await WebviewWindow.getByLabel('speech-bubble');
+        if (bw) {
+          await bw.setPosition(new LogicalPosition(
+            physPos.x / sf,
+            physPos.y / sf + CLOUD_TOP_OFFSET - BUBBLE_WIN_H,
+          ));
+        }
+        const scw = await WebviewWindow.getByLabel('scheduler');
+        if (scw) {
+          await scw.setPosition(
+            new LogicalPosition(physPos.x / sf - todoWidth - gap, physPos.y / sf),
+          );
+          if (schedulerVisibleRef.current) {
+            const pos = await scw.outerPosition();
+            const size = await scw.outerSize();
+            schedulerBoundsRef.current = { x: pos.x, y: pos.y, w: size.width, h: size.height };
+          }
+        }
+      });
+      unlistenMoveRef.current = unlisten;
+
+      // 窗口失焦 → 重置交互状态
+      const unlistenFocus = await mainWin.onFocusChanged(({ payload: focused }) => {
+        if (!focused) {
+          onInteractionChangeRef.current?.();
+        }
+      });
+      unlistenFocusRef.current = unlistenFocus;
+    };
+
+    initWindows();
+  }, []);
+
+  // 组件卸载时取消主窗口事件监听
+  useEffect(() => {
+    return () => {
+      unlistenMoveRef.current?.();
+      unlistenFocusRef.current?.();
+    };
+  }, []);
+
   return {
     // refs
     todoVisibleRef,
@@ -340,6 +440,12 @@ export function useWindowOrchestration() {
     schedulerHideTimerRef,
     bubbleReadyRef,
     onInteractionChangeRef,
+    unlistenMoveRef,
+    unlistenFocusRef,
+
+    // 气泡联动常量
+    CLOUD_TOP_OFFSET,
+    BUBBLE_WIN_H,
 
     // 光标轮询
     startCursorPoll,
