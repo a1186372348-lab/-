@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { typedListen } from '../../events';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
@@ -24,7 +24,7 @@ export default function SpeechBubblePage() {
 
     const unsubs: Promise<() => void>[] = [
       // 新一条回复开始：重置内容，立刻显示
-      listen<{ text: string; duration?: number }>('speech:show', ({ payload }) => {
+      typedListen('speech:show', (payload) => {
         clearTimer();
         setText(payload.text);
         setVisible(true);
@@ -36,17 +36,17 @@ export default function SpeechBubblePage() {
       }),
 
       // 流式追加
-      listen<{ delta: string }>('speech:append', ({ payload }) => {
+      typedListen('speech:append', (payload) => {
         setText(prev => prev + payload.delta);
       }),
 
       // 流结束，启动自动关闭计时
-      listen<{ duration: number }>('speech:done', ({ payload }) => {
+      typedListen('speech:done', (payload) => {
         clearTimer();
         timerRef.current = setTimeout(dismiss, payload.duration ?? 5000);
       }),
 
-      listen('speech:hide', dismiss),
+      typedListen('speech:hide', dismiss),
     ];
 
     return () => {
