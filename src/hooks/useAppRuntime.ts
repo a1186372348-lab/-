@@ -33,10 +33,6 @@ export interface AppRuntimeCallbacks {
   getDisturbMode: () => number;
   /** 用户是否正在输入 */
   isUserTyping: () => boolean;
-  /** 获取提醒间隔（分钟） */
-  getReminderInterval: () => number;
-  /** 设置提醒间隔 */
-  setReminderInterval: (min: number) => void;
   /** 设置专注时钟状态（支持直接赋值或函数式更新） */
   setFocusClock: (stateOrUpdater: FocusClockState | null | ((prev: FocusClockState | null) => FocusClockState | null)) => void;
   /** 设置 CC 工作感知状态 */
@@ -74,6 +70,9 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
   // CC 自动关闭计时器 ref
   const ccTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 提醒间隔内部缓存
+  const reminderIntervalRef = useRef(60);
 
   // ── US-013: 空闲计时 ──
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -132,7 +131,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       // 加载提醒间隔设置
       const savedInterval = await getSetting('reminder_interval_min');
       if (!mounted) return;
-      callbacksRef.current.setReminderInterval(savedInterval ? parseInt(savedInterval) : 60);
+      reminderIntervalRef.current = savedInterval ? parseInt(savedInterval) : 60;
 
       // 提醒服务
       reminderStopRef.current = startReminderService(
@@ -142,7 +141,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
           callbacksRef.current.showSpeech(`"${todo.title}" is still pending.`, 7000);
           setTimeout(() => callbacksRef.current.setExpression('default'), 3000);
         },
-        () => callbacksRef.current.getReminderInterval()
+        () => reminderIntervalRef.current
       );
 
       // 定时任务服务
@@ -156,7 +155,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       const unlistenSettings = await listen('settings-changed', async () => {
         resetClient();
         const newInterval = await getSetting('reminder_interval_min');
-        callbacksRef.current.setReminderInterval(newInterval ? parseInt(newInterval) : 60);
+        reminderIntervalRef.current = newInterval ? parseInt(newInterval) : 60;
       });
       if (!mounted) {
         unlistenSettings();
