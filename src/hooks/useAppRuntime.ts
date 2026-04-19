@@ -12,6 +12,7 @@ import { startScreenMonitor, stopScreenMonitor } from '../services/screenMonitor
 import { resetClient } from '../services/ai';
 import { getDb, getSetting } from '../services/db';
 import { useAppStore } from '../store';
+import { typedEmitTo, typedListen } from '../events';
 
 // ── 类型 ──────────────────────────────────────────────────
 export type FocusClockState = {
@@ -152,7 +153,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       });
 
       // 设置保存后重置 AI 客户端缓存并更新提醒间隔
-      const unlistenSettings = await listen('settings-changed', async () => {
+      const unlistenSettings = await typedListen('settings-changed', async () => {
         resetClient();
         const newInterval = await getSetting('reminder_interval_min');
         reminderIntervalRef.current = newInterval ? parseInt(newInterval) : 60;
@@ -175,10 +176,10 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
         callbacksRef.current.setExpression('happy');
       },
       onChunk: (delta) => {
-        emit('speech:append', { delta });
+        typedEmitTo('speech-bubble', 'speech:append', { delta });
       },
       onDone: () => {
-        emit('speech:done', { duration: 5000 });
+        typedEmitTo('speech-bubble', 'speech:done', { duration: 5000 });
         setTimeout(() => callbacksRef.current.setExpression('default'), 2000);
       },
     });
