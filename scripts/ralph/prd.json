@@ -293,9 +293,9 @@
       ],
       "priority": 16,
       "passes": false,
-      "notes": "[第3次尝试] 2026-04-19\n- 已修复：`npm run check` Rust check 环境问题（cargo clean 清除旧的 target 缓存，路径从 D:\\product 修正为 D:\\project）。npm run check 现在完全通过。\n- 已验证：TS typecheck 通过、Vite 前端构建成功（3.94s）、npm run check 通过。\n- 未验证：验收标准 1-9（Tauri 桌面 GUI 交互测试）仍需手动验证。Tauri 原生 WebView 窗口无法被 headless browser 或 gstack 操作。\n- 建议用户手动执行 `npm run tauri dev` 并逐一验证：悬停菜单、子窗口 show/hide、拖动联动、气泡输出。",
-      "retryCount": 3,
-      "blocked": false
+      "notes": "[验证失败 - 第6次] 2026-04-19\n- 失败项：验收标准 2-9（悬停菜单、子窗口 show/hide、拖动联动、气泡输出等 GUI 交互测试）无法自动验证\n- 验收标准 10-11（npm run check + typecheck）：TS typecheck + Rust check 全部通过（1.24s）\n- 根本原因：Tauri 原生 WebView 窗口的 GUI 交互无法被 headless browser 或 gstack 操作，这是工具链限制而非代码问题\n- 建议修复方向：用户手动执行 `npm run tauri dev`，逐一验证 9 项 GUI 交互后手动将 passes 设为 true\n[BLOCKED: 已达到最大重试次数，跳过此 story]",
+      "retryCount": 6,
+      "blocked": true
     },
     {
       "id": "US-017",
@@ -316,8 +316,8 @@
       ],
       "priority": 17,
       "passes": false,
-      "notes": "",
-      "retryCount": 0,
+      "notes": "[验证失败 - 第1次] 2026-04-19\n- 失败项：验收标准 2-9（低干扰模式、Ctrl 穿透、全屏恢复、宠物/输入栏交互、待办完成表情、专注事件、CC 事件、空闲 sleepy 等 GUI 交互测试）无法自动验证\n- 验收标准 10-11（npm run check + typecheck）：TS typecheck + Rust check 全部通过（1.29s）\n- 静态代码验证：useWindowOrchestration（830行）低干扰/穿透/交互 hook 连接完整，useAppRuntime（346行）事件桥接/空闲计时 hook 连接完整，App.tsx（96行）全部 JSX 绑定与 hook 返回值一一匹配\n- Vite build 成功（4.29s）\n- 根本原因：Tauri 原生 WebView 窗口的 GUI 交互无法被 headless browser 或 gstack 操作，与 US-016 相同的工具链限制\n- 建议修复方向：用户手动执行 `npm run tauri dev`，逐一验证 8 项 GUI 交互后手动将 passes 设为 true",
+      "retryCount": 1,
       "blocked": false
     },
     {

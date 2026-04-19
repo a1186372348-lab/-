@@ -354,3 +354,52 @@
   - 回归测试 story 的自动化验证范围：TS typecheck + Rust check + Vite build
 ---
 
+### Validation 2026-04-19 19:30 - US-016 - FAIL
+- Summary: 验收标准 1（Tauri 应用启动）通过、验收标准 10-11（npm run check + typecheck）通过。验收标准 2-9（GUI 交互测试）无法自动验证，Tauri 原生 WebView 窗口的悬停、拖动、气泡交互超出自动化工具能力范围。静态代码验证确认 hook 导出和 JSX 绑定正确。retryCount 从 3 增至 4。
+- Evidence: `npm run tauri dev` 成功启动应用（[DisturbMode] 日志正常）；`npm run check` 完全通过（TS + Rust）；Vite build 成功（589 modules, 3.20s）；useWindowOrchestration 返回 25 个导出与 App.tsx JSX 绑定逐一匹配
+---
+
+## 2026-04-19 19:35 - US-016
+- 第5次回归验证尝试
+- `npm run check` 完全通过（TS typecheck + Rust check，2.31s）
+- Tauri 应用成功运行（zhushou.exe PID 21972），Vite dev server :1420 响应 200
+- 静态代码连接性验证：App.tsx 96行，16处 winOrch. 引用全部与 hook 返回值一一匹配
+  - useWindowOrchestration (830行) 导出完整：hover handlers × 10、show/hide × 8、交互 handlers × 6、refs + 状态
+  - useAppRuntime (345行) 回调链正确：12个回调参数 + resetIdle 返回
+  - _resetIdle 模块级桥接变量正确连接两个 hook
+- 验收标准 2-9（GUI 交互测试）仍需用户手动验证，这是 Tauri 原生 WebView 窗口的工具链限制
+- 无代码变更，仅更新 prd.json notes
+- 更改的文件：scripts/ralph/prd.json（notes 更新）
+- **未来迭代的学习：**
+  - 经过 5 次验证尝试，确认 Tauri 桌面应用的 GUI 交互回归测试只能通过手动操作完成
+  - 自动化验证天花板：TS typecheck + Rust check + 应用启动 + 静态代码连接性分析
+  - 建议对此类 GUI 回归 story 采用"自动化验证通过 + 用户手动确认"的双轨验收模式
+---
+
+
+### Validation 2026-04-19 20:00 - US-016 - FAIL
+- Summary: 验收标准 10-11（npm run check + typecheck）通过（TS + Rust 1.24s）。验收标准 2-9（GUI 交互测试）无法自动验证，Tauri 原生 WebView 窗口超出自动化工具能力范围。retryCount 达到最大值 5→6，已标记 blocked。
+- Evidence: `npm run check` 完全通过；retryCount 从 5 增至 6；blocked 设为 true。
+---
+
+## 2026-04-19 21:00 - US-017
+- 进行代码层面静态回归验证：确认低干扰模式、Ctrl 穿透、全屏恢复、宠物/输入栏交互、待办完成表情、专注事件、CC 事件、空闲计时全部 hook 连接正确
+- 逐一验证连接：
+  - 失焦重置：useWindowOrchestration:589-596 onFocusChanged 重置 3 个 hover refs + applyDim
+  - Ctrl 穿透：useWindowOrchestration:670-703 keydown/keyup/blur + set_window_passthrough invoke
+  - 全屏→1s 恢复：useWindowOrchestration:617-626 全屏轮询 + 629-667 低干扰光标轮询 1000ms 检测
+  - 宠物/输入栏进出：useWindowOrchestration:487-524 6 个交互 handler + applyDim
+  - 待办完成：useAppRuntime:211-214 all-todos-complete → proudly → default
+  - 专注事件：useAppRuntime:219-270 focus-phase-change/start/pause/reset/tick
+  - CC 事件：useAppRuntime:289-317 cc-event PermissionRequest/Stop/other
+  - 空闲→sleepy：useAppRuntime:331-342 IDLE_MS 初始计时 + resetIdle 桥接
+- npm run check 通过（TS + Rust 1.29s）
+- Vite build 成功（4.29s）
+- **需要手动运行时验证**：US-017 的验收标准 2-9 需要在 Tauri 桌面应用中手动操作验证，与 US-016 相同的工具链限制
+- 无代码变更
+- **未来迭代的学习：**
+  - US-016 和 US-017 同为运行时回归 story，Tauri 原生窗口 GUI 交互无法自动化验证
+  - 低干扰模式静态验证清单：onFocusChanged 重置 → applyDim 计算 → displayDisturbMode state → opacity/pointerEvents JSX → setShowInputBar 守卫激活
+  - 穿透模式静态验证清单：isPassthrough state → keydown/keyup/blur listeners → set_window_passthrough invoke → opacity 0.3
+  - 运行时事件静态验证清单：事件名匹配 → callbacksRef 回调链 → setExpression/setFocusClock/setCcActive 状态更新
+---
