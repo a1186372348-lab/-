@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
@@ -11,6 +11,8 @@ type Bounds = { x: number; y: number; w: number; h: number };
 interface WindowOrchestrationOpts {
   onInteractionChange?: () => void;
   setShowHoverMenu?: (show: boolean) => void;
+  setShowInputBar?: (show: boolean) => void;
+  onActivity?: () => void;
 }
 
 // ── Hook ──────────────────────────────────────────────────
@@ -58,6 +60,33 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
   const unlistenMoveRef = useRef<(() => void) | null>(null);
   const unlistenFocusRef = useRef<(() => void) | null>(null);
 
+  // ── 低干扰模式 refs ──────────────────────────────────────
+  const disturbModeRef = useRef<0 | 1 | 2>(0);
+  const disturbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const disturbHoverStartRef = useRef<number | null>(null);
+
+  // 宠物/输入栏交互跟踪
+  const isPetHoveredRef = useRef(false);
+  const isInputHoveredRef = useRef(false);
+  const isInputFocusedRef = useRef(false);
+
+  // DOM refs
+  const petAreaRef = useRef<HTMLDivElement>(null);
+  const inputBarRef = useRef<HTMLDivElement>(null);
+
+  // 内部 show 状态跟踪（mousemove 兜底用）
+  const hoverMenuShownRef = useRef(false);
+  const inputBarShownRef = useRef(false);
+
+  // 额外 setter refs
+  const setShowInputBarRef = useRef<((show: boolean) => void) | null>(null);
+  const onActivityRef = useRef<(() => void) | null>(null);
+
+  // 低干扰展示状态
+  const [displayDisturbMode, setDisplayDisturbMode] = useState<0 | 1 | 2>(0);
+  // Ctrl 穿透状态
+  const [isPassthrough, setIsPassthrough] = useState(false);
+
   // 同步外部传入的 onInteractionChange 到 ref
   useEffect(() => {
     onInteractionChangeRef.current = opts?.onInteractionChange ?? null;
@@ -67,6 +96,26 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
   useEffect(() => {
     setShowHoverMenuRef.current = opts?.setShowHoverMenu ?? null;
   }, [opts?.setShowHoverMenu]);
+
+  // 同步外部传入的 setShowInputBar 到 ref
+  useEffect(() => {
+    setShowInputBarRef.current = opts?.setShowInputBar ?? null;
+  }, [opts?.setShowInputBar]);
+
+  // 同步外部传入的 onActivity 到 ref
+  useEffect(() => {
+    onActivityRef.current = opts?.onActivity ?? null;
+  }, [opts?.onActivity]);
+
+  // ── 低干扰模式：计算展示状态 ────────────────────────────
+  const applyDim = useCallback(() => {
+    const isActive = isPetHoveredRef.current
+      || isInputHoveredRef.current
+      || isInputFocusedRef.current
+      || todoVisibleRef.current
+      || settingsVisibleRef.current;
+    setDisplayDisturbMode(isActive ? 0 : disturbModeRef.current);
+  }, []);
 
   // ── 光标轮询：停止 ──────────────────────────────────────
   const stopCursorPoll = useCallback(() => {
@@ -419,13 +468,60 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
 
   const handleMenuZoneEnter = useCallback(() => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => setShowHoverMenuRef.current?.(true), 200);
+    hoverTimerRef.current = setTimeout(() => {
+      hoverMenuShownRef.current = true;
+      setShowHoverMenuRef.current?.(true);
+    }, 200);
   }, []);
 
   const handleMenuZoneLeave = useCallback(() => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => setShowHoverMenuRef.current?.(false), 50);
+    hoverTimerRef.current = setTimeout(() => {
+      hoverMenuShownRef.current = false;
+      setShowHoverMenuRef.current?.(false);
+    }, 50);
   }, []);
+
+  // ── 宠物/输入栏交互 handlers ────────────────────────────
+
+  const handlePetAreaEnter = useCallback(() => {
+    isPetHoveredRef.current = true;
+    applyDim();
+    onActivityRef.current?.();
+  }, [applyDim]);
+
+  const handlePetAreaLeave = useCallback(() => {
+    isPetHoveredRef.current = false;
+    applyDim();
+  }, [applyDim]);
+
+  const handleInputBarEnter = useCallback(() => {
+    if (inputBarTimerRef.current) clearTimeout(inputBarTimerRef.current);
+    isInputHoveredRef.current = true;
+    applyDim();
+    inputBarShownRef.current = true;
+    setShowInputBarRef.current?.(true);
+  }, [applyDim]);
+
+  const handleInputBarLeave = useCallback(() => {
+    if (inputBarTimerRef.current) clearTimeout(inputBarTimerRef.current);
+    inputBarTimerRef.current = setTimeout(() => {
+      isInputHoveredRef.current = false;
+      applyDim();
+      inputBarShownRef.current = false;
+      setShowInputBarRef.current?.(false);
+    }, 50);
+  }, [applyDim]);
+
+  const handleInputFocus = useCallback(() => {
+    isInputFocusedRef.current = true;
+    applyDim();
+  }, [applyDim]);
+
+  const handleInputBlur = useCallback(() => {
+    isInputFocusedRef.current = false;
+    applyDim();
+  }, [applyDim]);
 
   // ── 窗口初始化与联动 ──────────────────────────────────────
   useEffect(() => {
@@ -492,6 +588,10 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
       // 窗口失焦 → 重置交互状态
       const unlistenFocus = await mainWin.onFocusChanged(({ payload: focused }) => {
         if (!focused) {
+          isPetHoveredRef.current = false;
+          isInputHoveredRef.current = false;
+          isInputFocusedRef.current = false;
+          applyDim();
           onInteractionChangeRef.current?.();
         }
       });
@@ -509,8 +609,140 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     };
   }, []);
 
+  // ══════════════════════════════════════════════════════════
+  // 以下 useEffects 仅在 opts.setShowInputBar 存在时激活
+  // US-007 阶段 App.tsx 不传此参数，US-008 切换时激活
+  // ══════════════════════════════════════════════════════════
+
+  // ── 全屏模式轮询（500ms） ───────────────────────────────
+  useEffect(() => {
+    if (!opts?.setShowInputBar) return;
+
+    const timer = setInterval(async () => {
+      const mode = await invoke<0 | 1 | 2>('get_fullscreen_mode');
+      disturbModeRef.current = mode;
+      applyDim();
+    }, 500);
+    return () => clearInterval(timer);
+  }, [applyDim, opts?.setShowInputBar]);
+
+  // ── 低干扰模式：光标轮询 + 穿透切换 ──────────────────
+  useEffect(() => {
+    if (!opts?.setShowInputBar) return;
+
+    const stopPoll = () => {
+      if (disturbPollRef.current) { clearInterval(disturbPollRef.current); disturbPollRef.current = null; }
+      disturbHoverStartRef.current = null;
+    };
+
+    if (displayDisturbMode !== 0) {
+      invoke('set_window_passthrough', { passthrough: true }).catch(console.error);
+      if (disturbPollRef.current) return;
+      disturbPollRef.current = setInterval(async () => {
+        const [cx, cy]: [number, number] = await invoke('get_cursor_position');
+        const pos = await getCurrentWindow().outerPosition();
+        const dpr = window.devicePixelRatio || 1;
+        const rect = petAreaRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const inside = cx >= pos.x + rect.left * dpr && cx < pos.x + rect.right * dpr
+                    && cy >= pos.y + rect.top  * dpr && cy < pos.y + rect.bottom * dpr;
+        if (inside) {
+          if (disturbHoverStartRef.current === null) {
+            disturbHoverStartRef.current = Date.now();
+          } else if (Date.now() - disturbHoverStartRef.current >= 1000) {
+            stopPoll();
+            await invoke('set_window_passthrough', { passthrough: false });
+            isPetHoveredRef.current = true;
+            applyDim();
+          }
+        } else {
+          disturbHoverStartRef.current = null;
+        }
+      }, 100);
+    } else {
+      stopPoll();
+      invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
+    }
+
+    return stopPoll;
+  }, [displayDisturbMode, applyDim, opts?.setShowInputBar]);
+
+  // ── Ctrl 穿透：键盘监听 ────────────────────────────────
+  useEffect(() => {
+    if (!opts?.setShowInputBar) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && !isPassthrough) {
+        setIsPassthrough(true);
+        invoke('set_window_passthrough', { passthrough: true }).catch(console.error);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && isPassthrough) {
+        setIsPassthrough(false);
+        invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
+      }
+    };
+
+    const handleBlur = () => {
+      if (isPassthrough) {
+        setIsPassthrough(false);
+        invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [isPassthrough, opts?.setShowInputBar]);
+
+  // ── Mousemove 兜底：检测鼠标离开 pet-area / input-bar ─
+  useEffect(() => {
+    if (!opts?.setShowInputBar) return;
+
+    const checkBounds = (e: MouseEvent) => {
+      // HoverMenu 兜底
+      if (hoverMenuShownRef.current && petAreaRef.current) {
+        const rect = petAreaRef.current.getBoundingClientRect();
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right
+                    && e.clientY >= rect.top  && e.clientY <= rect.bottom;
+        if (!inside) {
+          if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+          hoverTimerRef.current = null;
+          hoverMenuShownRef.current = false;
+          setShowHoverMenuRef.current?.(false);
+          isPetHoveredRef.current = false;
+          applyDim();
+        }
+      }
+      // InputBar 兜底
+      if (inputBarShownRef.current && inputBarRef.current) {
+        const rect = inputBarRef.current.getBoundingClientRect();
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right
+                    && e.clientY >= rect.top  && e.clientY <= rect.bottom;
+        if (!inside) {
+          if (inputBarTimerRef.current) clearTimeout(inputBarTimerRef.current);
+          inputBarTimerRef.current = null;
+          inputBarShownRef.current = false;
+          setShowInputBarRef.current?.(false);
+          isInputHoveredRef.current = false;
+          applyDim();
+        }
+      }
+    };
+    document.addEventListener('mousemove', checkBounds);
+    return () => document.removeEventListener('mousemove', checkBounds);
+  }, [applyDim, opts?.setShowInputBar]);
+
   return {
-    // refs
+    // 子窗口可见性 refs
     todoVisibleRef,
     settingsVisibleRef,
     focusVisibleRef,
@@ -535,6 +767,22 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     setShowHoverMenuRef,
     unlistenMoveRef,
     unlistenFocusRef,
+
+    // 低干扰模式 refs
+    disturbModeRef,
+    isPetHoveredRef,
+    isInputHoveredRef,
+    isInputFocusedRef,
+
+    // 低干扰展示状态
+    displayDisturbMode,
+
+    // Ctrl 穿透状态
+    isPassthrough,
+
+    // DOM refs
+    petAreaRef,
+    inputBarRef,
 
     // 气泡联动常量
     CLOUD_TOP_OFFSET,
@@ -570,5 +818,13 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     // 菜单区域 hover handlers
     handleMenuZoneEnter,
     handleMenuZoneLeave,
+
+    // 宠物/输入栏交互 handlers
+    handlePetAreaEnter,
+    handlePetAreaLeave,
+    handleInputBarEnter,
+    handleInputBarLeave,
+    handleInputFocus,
+    handleInputBlur,
   };
 }
