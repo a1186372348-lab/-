@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect } from 'react';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
+import { emit } from '@tauri-apps/api/event';
 
 // ── 内部类型 ──────────────────────────────────────────────
 type Bounds = { x: number; y: number; w: number; h: number };
@@ -9,6 +10,7 @@ type Bounds = { x: number; y: number; w: number; h: number };
 // ── Hook 参数 ─────────────────────────────────────────────
 interface WindowOrchestrationOpts {
   onInteractionChange?: () => void;
+  setShowHoverMenu?: (show: boolean) => void;
 }
 
 // ── Hook ──────────────────────────────────────────────────
@@ -45,6 +47,8 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
 
   // 过渡期交互回调（低干扰模式通知）
   const onInteractionChangeRef = useRef<(() => void) | null>(null);
+  // 外部传入的 setShowHoverMenu 回调
+  const setShowHoverMenuRef = useRef<((show: boolean) => void) | null>(null);
 
   // 气泡窗口联动常量
   const CLOUD_TOP_OFFSET = 40;
@@ -58,6 +62,11 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
   useEffect(() => {
     onInteractionChangeRef.current = opts?.onInteractionChange ?? null;
   }, [opts?.onInteractionChange]);
+
+  // 同步外部传入的 setShowHoverMenu 到 ref
+  useEffect(() => {
+    setShowHoverMenuRef.current = opts?.setShowHoverMenu ?? null;
+  }, [opts?.setShowHoverMenu]);
 
   // ── 光标轮询：停止 ──────────────────────────────────────
   const stopCursorPoll = useCallback(() => {
@@ -335,6 +344,89 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     startCursorPoll();
   }, []);
 
+  // ── 气泡展示 ──────────────────────────────────────────────
+  const showSpeech = useCallback(async (text: string, durationMs = 5000) => {
+    try {
+      const mainWin = getCurrentWindow();
+      const bubbleWin = await WebviewWindow.getByLabel('speech-bubble');
+      if (!bubbleWin) return;
+      const pos = await mainWin.outerPosition();
+      const sf = await mainWin.scaleFactor();
+      await bubbleWin.setPosition(new LogicalPosition(
+        pos.x / sf,
+        Math.max(0, pos.y / sf + CLOUD_TOP_OFFSET - BUBBLE_WIN_H),
+      ));
+      if (!bubbleReadyRef.current) {
+        await bubbleWin.show();
+        bubbleReadyRef.current = true;
+        await new Promise<void>(r => setTimeout(r, 400));
+      }
+      await emit('speech:show', { text, duration: durationMs });
+    } catch {
+      // 静默失败
+    }
+  }, []);
+
+  // ── Hover handlers：按钮 enter/leave ──────────────────────
+
+  const handleTodoBtnEnter = useCallback(() => {
+    if (schedulerShowTimerRef.current) { clearTimeout(schedulerShowTimerRef.current); schedulerShowTimerRef.current = null; }
+    if (schedulerHideTimerRef.current) { clearTimeout(schedulerHideTimerRef.current); schedulerHideTimerRef.current = null; }
+    hideSchedulerWindow();
+    if (todoHideTimerRef.current) clearTimeout(todoHideTimerRef.current);
+    todoShowTimerRef.current = setTimeout(() => showTodoWindow(), 200);
+  }, []);
+
+  const handleTodoBtnLeave = useCallback(() => {
+    if (todoShowTimerRef.current) clearTimeout(todoShowTimerRef.current);
+    todoHideTimerRef.current = setTimeout(() => hideTodoWindow(), 500);
+  }, []);
+
+  const handleFocusBtnEnter = useCallback(() => {
+    if (focusHideTimerRef.current) clearTimeout(focusHideTimerRef.current);
+    focusShowTimerRef.current = setTimeout(() => showFocusWindow(), 200);
+  }, []);
+
+  const handleFocusBtnLeave = useCallback(() => {
+    if (focusShowTimerRef.current) clearTimeout(focusShowTimerRef.current);
+    focusHideTimerRef.current = setTimeout(() => hideFocusWindow(), 500);
+  }, []);
+
+  const handleSettingsBtnEnter = useCallback(() => {
+    if (settingsHideTimerRef.current) clearTimeout(settingsHideTimerRef.current);
+    settingsShowTimerRef.current = setTimeout(() => showSettingsWindow(), 200);
+  }, []);
+
+  const handleSettingsBtnLeave = useCallback(() => {
+    if (settingsShowTimerRef.current) clearTimeout(settingsShowTimerRef.current);
+    settingsHideTimerRef.current = setTimeout(() => hideSettingsWindow(), 500);
+  }, []);
+
+  const handleSchedulerBtnEnter = useCallback(() => {
+    if (todoShowTimerRef.current) { clearTimeout(todoShowTimerRef.current); todoShowTimerRef.current = null; }
+    if (todoHideTimerRef.current) { clearTimeout(todoHideTimerRef.current); todoHideTimerRef.current = null; }
+    hideTodoWindow();
+    if (schedulerHideTimerRef.current) clearTimeout(schedulerHideTimerRef.current);
+    schedulerShowTimerRef.current = setTimeout(() => showSchedulerWindow(), 200);
+  }, []);
+
+  const handleSchedulerBtnLeave = useCallback(() => {
+    if (schedulerShowTimerRef.current) clearTimeout(schedulerShowTimerRef.current);
+    schedulerHideTimerRef.current = setTimeout(() => hideSchedulerWindow(), 500);
+  }, []);
+
+  // ── Hover handlers：菜单区域 enter/leave ───────────────────
+
+  const handleMenuZoneEnter = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setShowHoverMenuRef.current?.(true), 200);
+  }, []);
+
+  const handleMenuZoneLeave = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setShowHoverMenuRef.current?.(false), 50);
+  }, []);
+
   // ── 窗口初始化与联动 ──────────────────────────────────────
   useEffect(() => {
     const initWindows = async () => {
@@ -440,6 +532,7 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     schedulerHideTimerRef,
     bubbleReadyRef,
     onInteractionChangeRef,
+    setShowHoverMenuRef,
     unlistenMoveRef,
     unlistenFocusRef,
 
@@ -460,5 +553,22 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     hideFocusWindow,
     showSchedulerWindow,
     hideSchedulerWindow,
+
+    // 气泡展示
+    showSpeech,
+
+    // 按钮 hover handlers
+    handleTodoBtnEnter,
+    handleTodoBtnLeave,
+    handleFocusBtnEnter,
+    handleFocusBtnLeave,
+    handleSettingsBtnEnter,
+    handleSettingsBtnLeave,
+    handleSchedulerBtnEnter,
+    handleSchedulerBtnLeave,
+
+    // 菜单区域 hover handlers
+    handleMenuZoneEnter,
+    handleMenuZoneLeave,
   };
 }
