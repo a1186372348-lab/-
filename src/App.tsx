@@ -27,11 +27,10 @@ const thunderSound = new Howl({ src: ['/sounds/thunder.mp3'], volume: 0.4, prelo
 let _resetIdle: () => void = () => {};
 
 export default function App() {
-  const { expression, weather, showHoverMenu, isProcessing,
+  const { expression, weather, showHoverMenu, isProcessing, ccActive,
     setExpression, setWeather, setShowHoverMenu, setIsProcessing } = useAppStore();
 
   const [showInputBar, setShowInputBar] = useState(false);
-  const [ccActive, setCcActive] = useState(false);
 
   const winOrch = useWindowOrchestration({
     setShowHoverMenu, setShowInputBar, onActivity: () => _resetIdle(),
@@ -44,7 +43,7 @@ export default function App() {
     showSpeech,
     getDisturbMode: () => winOrch.disturbModeRef.current,
     isUserTyping: () => winOrch.isInputFocusedRef.current,
-    setCcActive, setIsProcessing,
+    setIsProcessing,
     playThunder: () => thunderSound.play(),
     focusHideTimerRef: winOrch.focusHideTimerRef,
     hideFocusWindow: winOrch.hideFocusWindow,

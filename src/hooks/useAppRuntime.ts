@@ -28,8 +28,6 @@ export interface AppRuntimeCallbacks {
   getDisturbMode: () => number;
   /** 用户是否正在输入 */
   isUserTyping: () => boolean;
-  /** 设置 CC 工作感知状态 */
-  setCcActive: (active: boolean) => void;
   /** 设置 AI 处理中状态 */
   setIsProcessing: (processing: boolean) => void;
   /** 播放音效 */
@@ -284,7 +282,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
           clearTimeout(ccTimerRef.current);
           ccTimerRef.current = null;
         }
-        callbacksRef.current.setCcActive(true);
+        useAppStore.getState().setCcActive(true);
 
         if (payload.event === 'PermissionRequest') {
           ccPermissionPendingRef.current = true;
@@ -296,7 +294,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
           callbacksRef.current.showSpeech('主人，任务完成了！', 0);
           ccTimerRef.current = setTimeout(() => {
             callbacksRef.current.setExpression('default');
-            callbacksRef.current.setCcActive(false);
+            useAppStore.getState().setCcActive(false);
             typedEmitTo('speech-bubble', 'speech:done', { duration: 300 });
             ccTimerRef.current = null;
           }, 3000);
