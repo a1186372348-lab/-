@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { listen, emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { CloudExpression } from '../types';
 import { startWeatherSync } from '../services/weather';
@@ -287,7 +286,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un8);
 
       // cc-event
-      const un9 = await listen<{ event: string; tool: string }>('cc-event', ({ payload }) => {
+      const un9 = await typedListen('cc-event', (payload) => {
         if (ccTimerRef.current) {
           clearTimeout(ccTimerRef.current);
           ccTimerRef.current = null;
@@ -305,14 +304,14 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
           ccTimerRef.current = setTimeout(() => {
             callbacksRef.current.setExpression('default');
             callbacksRef.current.setCcActive(false);
-            emit('speech:done', { duration: 300 });
+            typedEmitTo('speech-bubble', 'speech:done', { duration: 300 });
             ccTimerRef.current = null;
           }, 3000);
         } else {
           if (ccPermissionPendingRef.current) {
             ccPermissionPendingRef.current = false;
             callbacksRef.current.setExpression('default');
-            emit('speech:done', { duration: 300 });
+            typedEmitTo('speech-bubble', 'speech:done', { duration: 300 });
           }
         }
       });
