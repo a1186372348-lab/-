@@ -35,3 +35,10 @@ export interface ScheduledTask {
   created_at: string;
   last_triggered_at: string | null;
 }
+
+export interface FocusClockState {
+  running: boolean;
+  phase: 'focus' | 'rest';
+  remainSecs: number;
+  totalSecs: number;
+}

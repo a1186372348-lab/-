@@ -1,6 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { CloudExpression } from '../types';
+import type { CloudExpression, FocusClockState } from '../types';
+
+// 兼容 re-export：外部消费者仍可从本文件导入 FocusClockState
+export type { FocusClockState } from '../types';
 import { startWeatherSync } from '../services/weather';
 import { startTimeCycleService } from '../services/timeCycle';
 import type { TimePeriod } from '../services/timeCycle';
@@ -12,14 +15,6 @@ import { resetClient } from '../services/ai';
 import { getDb, getSetting } from '../services/db';
 import { useAppStore } from '../store';
 import { typedEmitTo, typedListen } from '../events';
-
-// ── 类型 ──────────────────────────────────────────────────
-export type FocusClockState = {
-  running: boolean;
-  phase: 'focus' | 'rest';
-  remainSecs: number;
-  totalSecs: number;
-};
 
 // ── Callbacks 契约 ─────────────────────────────────────────
 export interface AppRuntimeCallbacks {

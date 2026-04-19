@@ -5,16 +5,9 @@
  * 渲染由 CloudRenderer 负责，替换 3D/Rive 形象时只改 CloudRenderer。
  */
 
-import { CloudExpression, WeatherCondition } from '../../types';
+import { CloudExpression, WeatherCondition, FocusClockState } from '../../types';
 import CloudRenderer from './CloudRenderer';
 import { useAutonomousBehavior } from '../../hooks/useAutonomousBehavior';
-
-interface FocusClockState {
-  running: boolean;
-  phase: 'focus' | 'rest';
-  remainSecs: number;
-  totalSecs: number;
-}
 
 interface CloudPetProps {
   expression: CloudExpression;

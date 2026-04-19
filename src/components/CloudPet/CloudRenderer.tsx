@@ -16,16 +16,9 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import type { Variants } from 'framer-motion';
-import { CloudExpression, WeatherCondition } from '../../types';
+import { CloudExpression, WeatherCondition, FocusClockState } from '../../types';
 import { AutonomousBehavior } from '../../services/behaviorScheduler';
 import './index.css';
-
-interface FocusClockState {
-  running: boolean;
-  phase: 'focus' | 'rest';
-  remainSecs: number;
-  totalSecs: number;
-}
 
 export interface CloudRendererProps {
   expression: CloudExpression;
