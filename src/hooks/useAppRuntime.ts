@@ -1,5 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { listen, emit } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import type { CloudExpression } from '../types';
 import { startWeatherSync } from '../services/weather';
 import { startTimeCycleService } from '../services/timeCycle';
 import type { TimePeriod } from '../services/timeCycle';
@@ -24,7 +26,7 @@ export interface AppRuntimeCallbacks {
   /** 天气变化：更新天气状态 + 关联表情 */
   onWeather: (condition: string) => void;
   /** 设置表情 */
-  setExpression: (expr: string) => void;
+  setExpression: (expr: CloudExpression) => void;
   /** 显示气泡文字，duration=0 不自动关闭 */
   showSpeech: (text: string, duration: number) => void;
   /** 获取当前低干扰模式（0/1/2） */
@@ -122,6 +124,9 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
     let mounted = true;
 
     const initConditional = async () => {
+      // 确保主窗口获得焦点，否则透明窗口在 Windows 上不会收到鼠标悬停事件
+      await getCurrentWindow().setFocus();
+
       await getDb();
 
       // 加载提醒间隔设置
