@@ -31,7 +31,7 @@ export default function App() {
     setExpression, setWeather, setShowHoverMenu, setIsProcessing } = useAppStore();
 
   const [showInputBar, setShowInputBar] = useState(false);
-  const [focusClock, setFocusClock] = useState<{
+  const [focusClock] = useState<{
     running: boolean; phase: 'focus' | 'rest'; remainSecs: number; totalSecs: number;
   } | null>(null);
   const [ccActive, setCcActive] = useState(false);
@@ -47,7 +47,7 @@ export default function App() {
     showSpeech,
     getDisturbMode: () => winOrch.disturbModeRef.current,
     isUserTyping: () => winOrch.isInputFocusedRef.current,
-    setFocusClock, setCcActive, setIsProcessing,
+    setCcActive, setIsProcessing,
     playThunder: () => thunderSound.play(),
     focusHideTimerRef: winOrch.focusHideTimerRef,
     hideFocusWindow: winOrch.hideFocusWindow,

@@ -28,8 +28,6 @@ export interface AppRuntimeCallbacks {
   getDisturbMode: () => number;
   /** 用户是否正在输入 */
   isUserTyping: () => boolean;
-  /** 设置专注时钟状态（支持直接赋值或函数式更新） */
-  setFocusClock: (stateOrUpdater: FocusClockState | null | ((prev: FocusClockState | null) => FocusClockState | null)) => void;
   /** 设置 CC 工作感知状态 */
   setCcActive: (active: boolean) => void;
   /** 设置 AI 处理中状态 */
@@ -220,7 +218,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
         } else {
           callbacksRef.current.showSpeech('休息结束，继续专注！加油 💪', 4000);
         }
-        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+        useAppStore.getState().setFocusClock((prev: FocusClockState | null) =>
           prev ? { ...prev, phase: next, remainSecs: payload.remainSecs, totalSecs: payload.remainSecs, running: false } : null
         );
       });
@@ -229,7 +227,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
       // focus-start
       const un3 = await typedListen('focus-start', (payload) => {
-        callbacksRef.current.setFocusClock({
+        useAppStore.getState().setFocusClock({
           running: true,
           phase: payload.phase,
           remainSecs: payload.remainSecs,
@@ -241,7 +239,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
       // focus-pause
       const un4 = await typedListen('focus-pause', (payload) => {
-        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+        useAppStore.getState().setFocusClock((prev: FocusClockState | null) =>
           prev ? { ...prev, running: false, remainSecs: payload.remainSecs } : null
         );
       });
@@ -250,14 +248,14 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
       // focus-reset
       const un5 = await typedListen('focus-reset', () => {
-        callbacksRef.current.setFocusClock(null);
+        useAppStore.getState().setFocusClock(null);
       });
       if (!mounted) { un5(); return; }
       cleanups.push(un5);
 
       // focus-tick
       const un6 = await typedListen('focus-tick', (payload) => {
-        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+        useAppStore.getState().setFocusClock((prev: FocusClockState | null) =>
           prev ? { ...prev, remainSecs: payload.remainSecs } : null
         );
       });
