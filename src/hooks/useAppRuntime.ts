@@ -209,7 +209,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
     const registerListeners = async () => {
       // all-todos-complete
-      const un1 = await listen('all-todos-complete', () => {
+      const un1 = await typedListen('all-todos-complete', () => {
         callbacksRef.current.setExpression('proudly');
         setTimeout(() => callbacksRef.current.setExpression('default'), 3000);
       });
@@ -217,8 +217,8 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un1);
 
       // focus-phase-change
-      const un2 = await listen<{ phase: string; remainSecs: number }>('focus-phase-change', ({ payload }) => {
-        const next = payload.phase as 'focus' | 'rest';
+      const un2 = await typedListen('focus-phase-change', (payload) => {
+        const next = payload.phase;
         if (next === 'rest') {
           callbacksRef.current.showSpeech('专注结束！休息一下吧 🎉', 5000);
           callbacksRef.current.setExpression('happy');
@@ -234,10 +234,10 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un2);
 
       // focus-start
-      const un3 = await listen<{ phase: string; remainSecs: number; task?: string }>('focus-start', ({ payload }) => {
+      const un3 = await typedListen('focus-start', (payload) => {
         callbacksRef.current.setFocusClock({
           running: true,
-          phase: payload.phase as 'focus' | 'rest',
+          phase: payload.phase,
           remainSecs: payload.remainSecs,
           totalSecs: payload.remainSecs,
         });
@@ -246,7 +246,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un3);
 
       // focus-pause
-      const un4 = await listen<{ phase: string; remainSecs: number }>('focus-pause', ({ payload }) => {
+      const un4 = await typedListen('focus-pause', (payload) => {
         callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
           prev ? { ...prev, running: false, remainSecs: payload.remainSecs } : null
         );
@@ -255,14 +255,14 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un4);
 
       // focus-reset
-      const un5 = await listen('focus-reset', () => {
+      const un5 = await typedListen('focus-reset', () => {
         callbacksRef.current.setFocusClock(null);
       });
       if (!mounted) { un5(); return; }
       cleanups.push(un5);
 
       // focus-tick
-      const un6 = await listen<{ phase: string; remainSecs: number }>('focus-tick', ({ payload }) => {
+      const un6 = await typedListen('focus-tick', (payload) => {
         callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
           prev ? { ...prev, remainSecs: payload.remainSecs } : null
         );
@@ -271,7 +271,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un6);
 
       // focus-mouse-enter
-      const un7 = await listen('focus-mouse-enter', () => {
+      const un7 = await typedListen('focus-mouse-enter', () => {
         if (callbacksRef.current.focusHideTimerRef.current) {
           clearTimeout(callbacksRef.current.focusHideTimerRef.current);
         }
@@ -280,7 +280,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un7);
 
       // focus-mouse-leave
-      const un8 = await listen('focus-mouse-leave', () => {
+      const un8 = await typedListen('focus-mouse-leave', () => {
         callbacksRef.current.focusHideTimerRef.current = setTimeout(callbacksRef.current.hideFocusWindow, 500);
       });
       if (!mounted) { un8(); return; }
