@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { typedEmit, typedEmitTo } from '../../events';
+import { typedEmitTo } from '../../events';
 import './index.css';
 
 type Phase = 'focus' | 'rest';
@@ -50,8 +50,6 @@ export default function FocusPage() {
           return 0;
         }
         const next = prev - 1;
-        // TODO US-022: 移除冗余广播
-        typedEmit('focus-tick', { phase, remainSecs: next });
         typedEmitTo('main', 'focus-tick', { phase, remainSecs: next });
         return next;
       });
@@ -61,12 +59,8 @@ export default function FocusPage() {
 
   const handleToggle = () => {
     if (!running) {
-      // TODO US-022: 移除冗余广播
-      typedEmit('focus-start', { phase, remainSecs, task });
       typedEmitTo('main', 'focus-start', { phase, remainSecs, task });
     } else {
-      // TODO US-022: 移除冗余广播
-      typedEmit('focus-pause', { phase, remainSecs });
       typedEmitTo('main', 'focus-pause', { phase, remainSecs });
     }
     setRunning(r => !r);
@@ -78,8 +72,6 @@ export default function FocusPage() {
     const secs = (phase === 'focus' ? focusDuration : restDuration) * 60;
     setTotalSecs(secs);
     setRemainSecs(secs);
-    // TODO US-022: 移除冗余广播
-    typedEmit('focus-reset', { phase });
     typedEmitTo('main', 'focus-reset', { phase });
   };
 
