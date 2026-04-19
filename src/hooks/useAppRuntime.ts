@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { listen, emit } from '@tauri-apps/api/event';
 import { startWeatherSync } from '../services/weather';
 import { startTimeCycleService } from '../services/timeCycle';
@@ -9,6 +9,7 @@ import { startSchedulerService } from '../services/scheduler';
 import { startScreenMonitor, stopScreenMonitor } from '../services/screenMonitor';
 import { resetClient } from '../services/ai';
 import { getDb, getSetting } from '../services/db';
+import { useAppStore } from '../store';
 
 // ── 类型 ──────────────────────────────────────────────────
 export type FocusClockState = {
@@ -42,8 +43,6 @@ export interface AppRuntimeCallbacks {
   setIsProcessing: (processing: boolean) => void;
   /** 播放音效 */
   playThunder: () => void;
-  /** 重置空闲计时 */
-  resetIdle: () => void;
   /** 获取 focus hide timer ref（用于 focus-mouse-enter/leave 联动） */
   focusHideTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   /** 隐藏 focus 窗口 */
@@ -51,6 +50,8 @@ export interface AppRuntimeCallbacks {
 }
 
 // ── Hook ──────────────────────────────────────────────────
+const IDLE_MS = 30 * 60 * 1000;
+
 export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
   // Ref-synced callbacks：保证 useEffect 闭包中始终读取最新回调
   const callbacksRef = useRef(callbacks);
@@ -71,6 +72,19 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
   // CC 自动关闭计时器 ref
   const ccTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── US-013: 空闲计时 ──
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetIdle = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (useAppStore.getState().expression === 'sleepy') {
+      callbacksRef.current.setExpression('default');
+    }
+    idleTimerRef.current = setTimeout(() => {
+      callbacksRef.current.setExpression('sleepy');
+    }, IDLE_MS);
+  }, []);
 
   // ── US-010: 常驻运行时服务（weather + timeCycle + colorSampler） ──
   useEffect(() => {
@@ -308,4 +322,20 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.forEach(fn => fn());
     };
   }, []);
+
+  // ── US-013: 空闲计时初始化 ──
+  useEffect(() => {
+    idleTimerRef.current = setTimeout(() => {
+      callbacksRef.current.setExpression('sleepy');
+    }, IDLE_MS);
+
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  return { resetIdle };
 }
