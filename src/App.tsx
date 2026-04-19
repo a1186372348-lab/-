@@ -31,9 +31,6 @@ export default function App() {
     setExpression, setWeather, setShowHoverMenu, setIsProcessing } = useAppStore();
 
   const [showInputBar, setShowInputBar] = useState(false);
-  const [focusClock] = useState<{
-    running: boolean; phase: 'focus' | 'rest'; remainSecs: number; totalSecs: number;
-  } | null>(null);
   const [ccActive, setCcActive] = useState(false);
 
   const winOrch = useWindowOrchestration({
@@ -87,7 +84,7 @@ export default function App() {
           onSchedulerBtnEnter={winOrch.handleSchedulerBtnEnter} onSchedulerBtnLeave={winOrch.handleSchedulerBtnLeave}
           onMenuEnter={winOrch.handleMenuZoneEnter} onMenuLeave={winOrch.handleMenuZoneLeave} />
         <div className="cloud-pet-bubble-anchor">
-          <CloudPet expression={expression} weather={weather} isProcessing={isProcessing} focusClock={focusClock} />
+          <CloudPet expression={expression} weather={weather} isProcessing={isProcessing} />
         </div>
       </div>
       <div ref={winOrch.inputBarRef} style={{ width: '100%', transform: 'translateY(-40px)', paddingTop: '20px' }}>

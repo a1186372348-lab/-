@@ -5,18 +5,19 @@
  * 渲染由 CloudRenderer 负责，替换 3D/Rive 形象时只改 CloudRenderer。
  */
 
-import { CloudExpression, WeatherCondition, FocusClockState } from '../../types';
+import { CloudExpression, WeatherCondition } from '../../types';
 import CloudRenderer from './CloudRenderer';
 import { useAutonomousBehavior } from '../../hooks/useAutonomousBehavior';
+import { useAppStore } from '../../store';
 
 interface CloudPetProps {
   expression: CloudExpression;
   weather: WeatherCondition;
   isProcessing: boolean;
-  focusClock?: FocusClockState | null;
 }
 
-export default function CloudPet({ expression, weather, isProcessing, focusClock }: CloudPetProps) {
+export default function CloudPet({ expression, weather, isProcessing }: CloudPetProps) {
+  const focusClock = useAppStore((state) => state.focusClock);
   const { pendingTrigger, clearTrigger } = useAutonomousBehavior();
 
   return (
