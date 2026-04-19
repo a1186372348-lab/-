@@ -69,3 +69,69 @@
   - `onFocusChanged` 处理器在 hook 中只调用 `onInteractionChangeRef.current?.()`；低干扰 refs 的重置（isPetHoveredRef 等）将在 US-007 迁入后补充
   - hook 签名从无参变为接受可选 `opts` 对象，此变更不影响 App.tsx 因为 hook 尚未被导入
 ---
+
+### Validation 2026-04-19 18:00 - US-004 - PASS
+- Summary: 所有6条验收标准均通过。`useWindowOrchestration.ts`（464行）包含子窗口初始化 useEffect（行 339-410）、主窗口移动监听 onMoved（行 356-397）、聚焦变化监听 onFocusChanged（行 401-406），并有独立的卸载清理 useEffect（行 413-418）。hook 接受 `WindowOrchestrationOpts` 含 `onInteractionChange` 回调，同步到 ref。内部持有 CLOUD_TOP_OFFSET(40)、BUBBLE_WIN_H(120) 常量及 unlistenMoveRef、unlistenFocusRef。App.tsx 仅在注释行 15 引用 hook，未实际导入或调用。TS typecheck 通过。Rust check 失败为预存环境问题（target 路径指向 D:\product 而非 D:\project），非本 story 引入。
+- Evidence: `cat src/hooks/useWindowOrchestration.ts` 确认 464 行完整实现含 3 个 useEffect 及 cleanup；`grep useWindowOrchestration src/App.tsx` 仅命中注释行 15；`npx tsc --noEmit` 成功无输出；`npm run check:rust` 报错路径为 `D:\product` 证明为预存问题
+---
+
+## 2026-04-19 19:00 - US-005
+- 将 `showSpeech` 气泡展示函数和 10 个 hover handlers（4组按钮 enter/leave + 2个菜单区域 enter/leave）迁入 `useWindowOrchestration` hook
+- `WindowOrchestrationOpts` 接口新增 `setShowHoverMenu` 回调参数，通过 `setShowHoverMenuRef` 在 useEffect 中同步
+- 所有 hover handlers 使用 hook 内部的延时计时器 refs 和 show/hide helpers，不依赖 App.tsx 模块级变量
+- `showSpeech` 使用 hook 内部的 `bubbleReadyRef`、`CLOUD_TOP_OFFSET`、`BUBBLE_WIN_H` 常量
+- App.tsx 未被修改，仍使用旧路径
+- 更改的文件：src/hooks/useWindowOrchestration.ts（464 → 574 行，+110 行新增）
+- **未来迭代的学习：**
+  - hover handlers 的互斥逻辑（todo vs scheduler）在 hook 中通过直接引用对应的 show/hide 函数和 timer refs 实现
+  - `setShowHoverMenu` 通过 ref 传递而非直接调用，避免 useCallback 依赖不稳定的外部 setter
+  - US-006 将在 App.tsx 中正式接入 hook 返回的 handlers 并删除旧的模块级实现
+---
+
+### Validation 2026-04-19 20:00 - US-005 - PASS
+- Summary: 所有7条验收标准均通过。`useWindowOrchestration.ts`（574行）对外返回 `showSpeech`（行 558）、8个按钮 enter/leave handlers（todo/settings/focus/scheduler，行 561-568）、2个菜单区域 enter/leave handlers（行 571-572）。hover handlers 统一使用 hook 内部延时计时器 refs（todoShowTimerRef 等）和 show/hide helpers，不依赖 App.tsx 模块级变量。hook 通过 `WindowOrchestrationOpts.setShowHoverMenu` 接收外部 setter（行 13 接口定义，行 67-69 ref 同步，行 422 使用）。App.tsx 仅在注释行 15 引用 hook，未实际导入或调用。git diff 确认 App.tsx 无改动。TS typecheck 通过。Rust check 失败为预存环境问题（target 路径指向 D:\product 而非 D:\project），非本 story 引入。
+- Evidence: `cat src/hooks/useWindowOrchestration.ts` 确认 574 行含 showSpeech 及 10 个 hover handlers；`grep useWindowOrchestration src/App.tsx` 仅命中注释行 15；`git diff -- src/App.tsx` 无输出；`npx tsc --noEmit` 成功无输出；`npm run check:rust` 报错路径为 `D:\product` 证明为预存问题
+---
+
+## 2026-04-19 21:00 - US-006
+- 在 App.tsx 中正式接入 `useWindowOrchestration` hook，传入 `setShowHoverMenu`
+- 删除全部模块级窗口编排代码：hover/visibility/bounds 变量（10 个 timer、4 个 visibility、4 个 bounds）、`onInteractionChange` 回调、`Bounds` 类型、`cursorPollTimer`
+- 删除全部模块级函数：`startCursorPoll`、`stopCursorPoll`、8 个 show/hide helper
+- 删除组件内 `showSpeech` useCallback、`bubbleReadyRef`、`CLOUD_TOP_OFFSET`/`BUBBLE_WIN_H` 常量
+- 删除 `initWindows` useEffect、`unlistenMoveRef`/`unlistenFocusRef` 及其清理 useEffect
+- 删除组件内 10 个 hover handler 声明（按钮 enter/leave × 4 组 + 菜单区域 enter/leave）
+- HoverMenu 和菜单触发区绑定全部切换到 `winOrch.handleXxx`
+- `applyDim` 改为读取 `winOrch.todoVisibleRef.current`/`settingsVisibleRef.current` 替代旧模块级变量
+- 通过手动同步 `winOrch.onInteractionChangeRef.current = applyDim` 替代旧 `onInteractionChange` 注册
+- 新增独立 `onFocusChanged` useEffect 重置低干扰 hover refs（hook 内 onFocusChanged 只调用 onInteractionChange，不重置 refs）
+- focus-mouse-enter/leave 事件监听改为使用 `winOrch.focusHideTimerRef`/`winOrch.hideFocusWindow`
+- mousemove 兜底和 handleInputBarEnter/Leave 改为使用 `winOrch.hoverTimerRef`/`winOrch.inputBarTimerRef`
+- 移除不再需要的 imports：`WebviewWindow`、`LogicalPosition`
+- 职责冻结注释更新：标注已迁往 hook 的职责
+- 更改的文件：src/App.tsx（952 → 490 行，-464 行删除，+76 行新增）
+- **未来迭代的学习：**
+  - `applyDim` 通过 ref bridge 模式连接到 hook：先调用 hook 获取 refs，再定义 `applyDim` 读取 hook refs，最后手动同步到 hook 的 `onInteractionChangeRef`
+  - 窗口失焦 ref 重置需保留在 App.tsx（独立 useEffect），因为 hook 的 `onFocusChanged` 只调用 `onInteractionChange`，不重置低干扰 hover refs
+  - `handleSend` 中的 `showSpeech` 引用从组件级 useCallback 变为 hook 返回值，由于 hook 的 `showSpeech` 是 `useCallback([], [])` 稳定引用，捕获行为不变
+  - 运行时 useEffect 的 `focus-mouse-enter/leave` 监听改为直接操作 hook 的 ref 和函数，无需依赖模块级变量
+---
+
+### Validation 2026-04-19 22:00 - US-006 - PASS
+- Summary: 所有7条验收标准均通过。App.tsx（564行）导入并调用 `useWindowOrchestration`（行55导入，行84调用），解构出 `showSpeech`（行85）。HoverMenu 绑定全面切换到 `winOrch.handleXxx`（行523-538），菜单触发区使用 `winOrch.handleMenuZoneEnter/Leave`（行523-525）。App.tsx 不再声明 `startCursorPoll`、`stopCursorPoll`、`showSpeech` useCallback、8个子窗口 show/hide helpers、10个按钮/菜单 hover handlers。模块级计时器（cursorPollTimer、10个hover timer refs）、边界缓存（4个bounds refs）、`bubbleReadyRef`、`CLOUD_TOP_OFFSET`/`BUBBLE_WIN_H` 常量均已移除。低干扰模式（disturbModeRef, applyDim, 全屏轮询）、Ctrl 穿透（keydown/keyup/blur）、宠物/输入栏交互（handlePetAreaEnter/Leave, handleInputBarEnter/Leave, handleInputFocus/Blur）仍保留在 App.tsx。TS typecheck 通过。Rust check 失败为预存环境问题（target 路径指向 D:\product 而非 D:\project），非本 story 引入。
+- Evidence: `cat src/App.tsx` 确认564行，无已迁出函数声明；grep 确认所有 handleXxx 仅通过 `winOrch.` 引用；`npx tsc --noEmit` 成功无输出
+---
+
+## 2026-04-19 23:00 - US-007
+- 将低干扰模式（disturbModeRef, applyDim, 全屏轮询, 光标悬停1s显形）、Ctrl 穿透（keydown/keyup/blur）、mousemove 兜底、宠物/输入栏交互 handlers 迁入 `useWindowOrchestration` hook
+- `WindowOrchestrationOpts` 新增 `setShowInputBar` 和 `onActivity` 可选参数
+- hook 对外返回 `petAreaRef`、`inputBarRef`、`displayDisturbMode`、`isPassthrough`、`handlePetAreaEnter/Leave`、`handleInputBarEnter/Leave`、`handleInputFocus/Blur`
+- 所有 guarded useEffects（全屏轮询、低干扰光标轮询、Ctrl 穿透、mousemove 兜底）仅在 `opts.setShowInputBar` 存在时激活，US-007 阶段 App.tsx 不传此参数
+- `handleMenuZoneEnter/Leave` 更新为同时维护内部 `hoverMenuShownRef` 跟踪
+- `onFocusChanged` 处理器更新为同时重置 `isPetHoveredRef`/`isInputHoveredRef`/`isInputFocusedRef` 并调用 hook 内部 `applyDim`
+- App.tsx 未被修改，仍使用旧的低干扰绑定
+- 更改的文件：src/hooks/useWindowOrchestration.ts（574 → 830 行，+260 行新增，-4 行修改）
+- **未来迭代的学习：**
+  - 当 hook 已被 App.tsx 调用时，新增 useEffects 会立即执行。通过 opts 参数守卫（如 `opts?.setShowInputBar`）可以延迟激活，让 "定义逻辑" 和 "切换入口" 两个步骤解耦
+  - `handleMenuZoneEnter/Leave` 的 setTimeout 回调内同时更新内部 shown ref 和调用外部 setter，确保 mousemove 兜底能立即读到最新状态
+  - `onFocusChanged` 从仅调用 `onInteractionChangeRef` 扩展为同时重置 hover refs 并调用 hook 内 `applyDim`，保留原有 `onInteractionChangeRef.current?.()` 调用以兼容 App.tsx 的 ref bridge
+---
