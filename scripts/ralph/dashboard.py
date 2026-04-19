@@ -174,7 +174,7 @@ def start(port: int = 7331, max_iterations: int = 50, open_browser: bool = True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
-    url = f"http://localhost:{selected_port}"
+    url = f"http://localhost:{selected_port}/p"
     if selected_port != port:
         print(f"⚠️  Dashboard 端口 {port} 被占用，已切换到 {selected_port}")
     print(f"🖥️  Dashboard: {url}")

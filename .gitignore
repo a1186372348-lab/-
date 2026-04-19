@@ -34,3 +34,4 @@ nul
 *.njsproj
 *.sln
 *.sw?
+.gstack/

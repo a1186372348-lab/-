@@ -10,8 +10,10 @@
 2. 读取 `scripts/ralph/progress.txt` 中的进度日志（首先检查 Codebase Patterns 部分；如果文件不存在则先按空文件处理）
 3. 检查你是否在 PRD 中 `branchName` 指定的正确 branch 上。如果不是，checkout 或从 main 创建它。
 4. **严格按照顺序**选择 `userStories` 数组中第一个满足以下所有条件的 story：
-   - `passes: false`
    - `blocked: false`（或 blocked 字段不存在）
+   - 并且满足以下任一条件：
+     - `passes: false`
+     - `notes` 非空（表示还有未收口问题，即使 `passes` 已经是 `true` 也不能跳过）
    **(绝对禁止跳跃：必须按数组顺序开发完当前再开发下一个)**
    
    如果该 story 的 `notes` 字段不为空，说明 Validator 上次验证发现了问题，

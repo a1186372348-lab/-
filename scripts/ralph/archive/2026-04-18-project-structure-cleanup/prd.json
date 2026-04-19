@@ -1,0 +1,302 @@
+{
+  "project": "Zhushou",
+  "branchName": "ralph/project-structure-cleanup",
+  "description": "清理 zhushou 仓库结构、补齐文档体系、统一检查入口，并固化后续代码治理规则。",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "盘点根目录并记录资产处理结论",
+      "description": "作为项目维护者，我希望先完成根目录资产盘点和处理结论记录，以便后续清理工作有明确边界。",
+      "acceptanceCriteria": [
+        "Create a root-structure inventory document that explains the purpose of every top-level directory and key loose file in the repository",
+        "Record an explicit keep, move, delete, or ignore decision for __MACOSX, .agents, .cursor, scripts/ralph, and test-bubble.ps1",
+        "Document whether cloudpet-mcp is treated as an independent subproject or a subsystem of the main desktop app",
+        "git diff shows no accidental deletion of source files, build configuration, or database-related files",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-002",
+      "title": "建立项目状态总控文档",
+      "description": "作为项目维护者，我希望有一个统一的项目状态入口，以便不用翻聊天记录也能理解当前项目状态。",
+      "acceptanceCriteria": [
+        "Create docs/PROJECT_STATUS.md",
+        "The document includes current goals, in-progress work, recently completed work, the next smallest action, and current risks or blockers",
+        "The content is based on the current repository state instead of generic placeholder text",
+        "A new contributor can understand the current project phase and next action by reading only this document",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-003",
+      "title": "创建功能需求卡目录和模板入口",
+      "description": "作为开发者，我希望先建立功能需求卡目录和统一模板入口，以便后续补齐功能文档时结构一致。",
+      "acceptanceCriteria": [
+        "Create docs/specs as the canonical directory for feature specification cards",
+        "Add a template or index document that defines the required sections for each feature card: goals, user path, inputs, outputs, business rules, edge cases, current status, and acceptance checklist",
+        "The specs directory is linked from an existing navigation document or index",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-004",
+      "title": "补齐主窗口与基础交互能力需求卡",
+      "description": "作为开发者，我希望先补齐主窗口相关能力的需求卡，以便最核心桌面交互具备明确边界。",
+      "acceptanceCriteria": [
+        "Create spec cards for the main cloud window, the speech bubble window, and settings under docs/specs",
+        "Each card includes goals, user path, inputs, outputs, business rules, edge cases, current status, and an acceptance checklist",
+        "Each card describes expected behavior rather than implementation details",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-005",
+      "title": "补齐任务与调度能力需求卡",
+      "description": "作为开发者，我希望补齐 Todo、Scheduler 和 Reminder 的需求卡，以便任务相关能力具备清晰边界。",
+      "acceptanceCriteria": [
+        "Create spec cards for Todo, Scheduler, and Reminder under docs/specs",
+        "Each card includes goals, user path, inputs, outputs, business rules, edge cases, current status, and an acceptance checklist",
+        "The Todo, Scheduler, and Reminder cards make their data and trigger boundaries explicit",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-006",
+      "title": "补齐专注与 AI 能力需求卡",
+      "description": "作为开发者，我希望补齐 Focus、AI 对话和 Memory 的需求卡，以便专注和 AI 相关能力具备明确边界。",
+      "acceptanceCriteria": [
+        "Create spec cards for Focus, AI chat, and Memory under docs/specs",
+        "Each card includes goals, user path, inputs, outputs, business rules, edge cases, current status, and an acceptance checklist",
+        "The AI chat and Memory cards distinguish user-facing behavior from implementation details",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-007",
+      "title": "建立功能状态矩阵",
+      "description": "作为项目维护者，我希望有一份统一的功能状态矩阵，以便快速查看每项能力的当前状态和优先级。",
+      "acceptanceCriteria": [
+        "Create docs/specs/FEATURE_MATRIX.md",
+        "The matrix includes feature name, status, priority, linked documentation, and notes",
+        "Status values use one consistent set such as idea, planned, in-progress, shipped, and paused",
+        "Every existing spec card created in earlier stories is referenced from the matrix",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-008",
+      "title": "建立项目路线图文档",
+      "description": "作为项目维护者，我希望有一份路线图文档，以便把当前阶段重点、明确暂不做事项和下一阶段候选工作写清楚。",
+      "acceptanceCriteria": [
+        "Create docs/specs/ROADMAP.md",
+        "The roadmap includes current phase priorities, explicit non-goals for the current phase, and next-phase candidate work",
+        "The roadmap language matches the statuses and priorities used in FEATURE_MATRIX.md",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-009",
+      "title": "建立架构分层说明文档",
+      "description": "作为开发者，我希望有一份明确的架构分层说明，以便知道新代码应放在哪一层以及各层负责什么。",
+      "acceptanceCriteria": [
+        "Create docs/architecture/ARCHITECTURE.md",
+        "The document defines the responsibilities and boundaries of the UI layer, page coordination layer, service layer, Tauri/Rust layer, and cloudpet-mcp",
+        "The document explicitly marks src/App.tsx as a current governance hotspot rather than a default place for new business logic",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-010",
+      "title": "建立事件文档",
+      "description": "作为开发者，我希望有一份事件文档，以便快速查到当前关键事件的发送方、接收方和用途。",
+      "acceptanceCriteria": [
+        "Create docs/architecture/EVENTS.md",
+        "Document the current key events with event name, sender, receiver, and purpose",
+        "The documented event names match the names already used in the codebase and existing project docs",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-011",
+      "title": "建立关键数据流文档",
+      "description": "作为开发者，我希望有一份数据流文档，以便快速理解 Todo、Reminder、Scheduler、Chat 和 Memory 的关键链路。",
+      "acceptanceCriteria": [
+        "Create docs/architecture/DATA_FLOW.md",
+        "The document covers the runtime flow for Todo, Reminder, Scheduler, Chat, and Memory",
+        "For each flow, the document identifies the main inputs, processing layer, persistence or side effects, and observable outputs",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-012",
+      "title": "建立技术债文档",
+      "description": "作为项目维护者，我希望把已知的工程风险记录到统一文档中，以便后续治理工作有明确依据。",
+      "acceptanceCriteria": [
+        "Create docs/architecture/TECH_DEBT.md",
+        "Record at least these issues: src/App.tsx is too heavy, polling is overused, event boundaries are loose, state truth may be duplicated, and manual verification is expensive",
+        "Each debt item includes the observed problem, current impact, recommended direction, and whether it blocks future work",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-013",
+      "title": "建立测试策略文档",
+      "description": "作为开发者，我希望明确自动检查和人工验收的边界，以便每次改动后有稳定的验证路径。",
+      "acceptanceCriteria": [
+        "Create docs/process/TEST_STRATEGY.md",
+        "The document distinguishes automated checks, manual acceptance checks, and intentionally uncovered areas",
+        "The document explicitly states that multi-window behavior, transparency, click-through, tray behavior, and window positioning require manual verification",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-014",
+      "title": "建立最小回归清单",
+      "description": "作为开发者，我希望有一份最小回归清单，以便常规改动后可以按固定步骤做人工回归。",
+      "acceptanceCriteria": [
+        "Create docs/process/REGRESSION_CHECKLIST.md",
+        "The checklist covers main window display, sub-window opening, Todo basic operations, Scheduler refresh, Focus state changes, and speech bubble display",
+        "Each checklist item describes an observable verification action instead of a vague statement",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-015",
+      "title": "统一 package.json 检查脚本入口",
+      "description": "作为开发者，我希望根目录提供统一检查脚本，以便不用靠记忆拼装最小验证命令。",
+      "acceptanceCriteria": [
+        "Add or update package.json scripts for check:ts, check:rust, check, and verify",
+        "check:ts runs npx tsc --noEmit",
+        "check:rust runs cargo check --manifest-path src-tauri/Cargo.toml",
+        "check aggregates the minimum automated validation path for the repository",
+        "The responsibility of verify is documented in the repository docs",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-016",
+      "title": "重组 docs 目录并修复文档导航",
+      "description": "作为项目维护者，我希望按用途重组 docs 目录并修复导航入口，以便任何人都能快速找到需求、架构、流程和日志。",
+      "acceptanceCriteria": [
+        "Reorganize docs into clear sections such as specs, architecture, process, and logs, or document the equivalent target structure",
+        "Update document references so no navigation document points to a missing file after the reorganization",
+        "Update DEVELOPMENT_GUIDE.md to serve as the new documentation navigation entry point",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-017",
+      "title": "固化后续代码治理规则",
+      "description": "作为开发者，我希望把后续协作规则固化进入口文档，以便项目不会很快回到结构混乱状态。",
+      "acceptanceCriteria": [
+        "Document that new features require a spec card before implementation begins",
+        "Document that cross-module changes must update the related docs in the same change",
+        "Document that new business logic should go to services or appropriate modules instead of defaulting to src/App.tsx",
+        "Document that contributors must run the minimum checks and inspect git diff before submitting changes",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-018",
+      "title": "验证结构清理闭环是否成立",
+      "description": "作为项目维护者，我希望最后做一次文档与流程的闭环检查，以便确认结构清理产物已经形成可用的工程入口。",
+      "acceptanceCriteria": [
+        "All newly created docs are reachable from the documentation entry points without dead links",
+        "FEATURE_MATRIX, ROADMAP, architecture docs, process docs, and PROJECT_STATUS reference each other consistently where needed",
+        "The documented minimum check path can be followed from DEVELOPMENT_GUIDE.md without guessing missing steps",
+        "git diff contains only the expected structure-cleanup and documentation changes for this initiative",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    }
+  ]
+}

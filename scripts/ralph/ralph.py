@@ -193,6 +193,20 @@ def validate_developer_completion(
     return (len(reasons) == 0, reasons)
 
 
+def story_has_open_notes(story: dict) -> bool:
+    """Return True when a story still has unresolved notes."""
+    return str(story.get("notes", "") or "").strip() != ""
+
+
+def story_needs_work(story: dict) -> bool:
+    """Return True when a story is not blocked and still requires work."""
+    if bool(story.get("blocked", False)):
+        return False
+    if not bool(story.get("passes", False)):
+        return True
+    return story_has_open_notes(story)
+
+
 def extract_latest_story_id_from_progress(progress_text: str | None) -> str | None:
     """Extract the latest developer story ID from progress.txt."""
     if not progress_text:
@@ -322,6 +336,10 @@ def validate_validator_completion(
         reasons.append(f"Validation 记录标记 FAIL，但 story {target_story_id} 已通过")
         return (VAL_INCOMPLETE, reasons)
 
+    if after_passes and after_notes.strip() != "":
+        reasons.append(f"Validation 将 story {target_story_id} 标为通过，但 notes 仍非空")
+        return (VAL_INCOMPLETE, reasons)
+
     if after_passes:
         return (VAL_PASSED, reasons)
 
@@ -403,7 +421,7 @@ def _stream_pipe(pipe, file_handle, buffer_list):
         pipe.close()
 
 
-def run_developer(iteration: int) -> str:
+def run_developer(iteration: int, current_story_id: str | None = None) -> str:
     """Run the developer agent and return a development-phase status."""
     safe_print(f"\n{'='*64}\n  迭代 {iteration}/{MAX_ITERATIONS}\n{'='*64}")
 
@@ -412,11 +430,21 @@ def run_developer(iteration: int) -> str:
         return DEV_FATAL
 
     file_content = read_utf8_text(CLAUDE_INSTRUCTION_FILE)
+    story_hint = ""
+    if current_story_id:
+        story_hint = (
+            f"\n[Current story ID: {current_story_id}] "
+            "You must work on this exact story. "
+            "Treat a non-empty notes field as unresolved work even if passes is already true. "
+            "Do not switch to another story.\n"
+        )
+
     action_directive = (
         "[Task] Read scripts/ralph/prd.json and scripts/ralph/progress.txt "
         "(if present), then implement the next unfinished user story. "
         "If all stories are already done, exit normally. "
-        "Do not chat or ask follow-up questions.\n\n"
+        "Do not chat or ask follow-up questions."
+        f"{story_hint}\n"
         "=== Base rules and project context ===\n"
     )
     prompt = action_directive + file_content
@@ -627,11 +655,11 @@ def run_validator(iteration: int, current_story_id: str | None = None) -> str:
 
 
 def get_current_story_id() -> str | None:
-    """Return the first story where passes=False and blocked=False."""
+    """Return the first story that still requires action."""
     try:
         prd = json.loads(read_utf8_text(PRD_FILE))
         for story in prd.get("userStories", []):
-            if not story.get("passes", False) and not story.get("blocked", False):
+            if story_needs_work(story):
                 return story.get("id")
     except Exception:
         pass
@@ -639,14 +667,12 @@ def get_current_story_id() -> str | None:
 
 
 def all_stories_resolved() -> bool:
-    """Return True when all stories are passing or blocked."""
+    """Return True when all stories are blocked or fully clean."""
     try:
         prd = json.loads(read_utf8_text(PRD_FILE))
         stories = prd.get("userStories", [])
         for story in stories:
-            passes = story.get("passes", False)
-            blocked = story.get("blocked", False)
-            if not passes and not blocked:
+            if story_needs_work(story):
                 return False
         return True
     except Exception as e:
@@ -691,7 +717,7 @@ def main():
 
             if next_action == NEXT_ACTION_DEVELOP:
                 dashboard.set_state(iteration=i, phase="developing", current_story=current_story)
-                developer_status = run_developer(i)
+                developer_status = run_developer(i, current_story)
 
                 if developer_status == DEV_TIMED_OUT:
                     dashboard.set_state(phase="idle", current_story=current_story)
