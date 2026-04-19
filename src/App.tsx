@@ -1,7 +1,11 @@
 /**
- * App.tsx — 薄协调层
- * 职责：页面组装、用户交互入口、AI 表现协调、本地 UI state
- * 窗口编排 → useWindowOrchestration | 运行时 → useAppRuntime
+ * App.tsx — 薄协调层（~96 行）
+ *
+ * 本文件仅保留页面组装、用户交互入口、AI 表现协调和本地 UI state。
+ * 窗口编排（子窗口 show/hide、光标轮询、低干扰、穿透、hover 交互）
+ *   已迁至 useWindowOrchestration
+ * 运行时（服务生命周期、事件桥接、空闲计时）
+ *   已迁至 useAppRuntime
  */
 
 import { useCallback, useState } from 'react';
