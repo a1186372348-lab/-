@@ -142,7 +142,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -160,7 +160,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -177,7 +177,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -195,7 +195,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -213,7 +213,7 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -231,7 +231,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -249,7 +249,7 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -269,7 +269,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -293,8 +293,8 @@
       ],
       "priority": 16,
       "passes": false,
-      "notes": "",
-      "retryCount": 0,
+      "notes": "[第3次尝试] 2026-04-19\n- 已修复：`npm run check` Rust check 环境问题（cargo clean 清除旧的 target 缓存，路径从 D:\\product 修正为 D:\\project）。npm run check 现在完全通过。\n- 已验证：TS typecheck 通过、Vite 前端构建成功（3.94s）、npm run check 通过。\n- 未验证：验收标准 1-9（Tauri 桌面 GUI 交互测试）仍需手动验证。Tauri 原生 WebView 窗口无法被 headless browser 或 gstack 操作。\n- 建议用户手动执行 `npm run tauri dev` 并逐一验证：悬停菜单、子窗口 show/hide、拖动联动、气泡输出。",
+      "retryCount": 3,
       "blocked": false
     },
     {
