@@ -6,7 +6,7 @@
 
 - [ ] 执行 `git status`，确认当前工作区状态
 - [ ] 提交已完成改动，或至少明确哪些改动还没提交
-- [ ] 更新 [`SESSION_LOG.md`](./SESSION_LOG.md)
+- [ ] 更新 [`SESSION_LOG.md`](../logs/SESSION_LOG.md)
 - [ ] 记下当前分支名
 - [ ] 记下下一步最小动作
 - [ ] 确认本地私有配置是否需要手动迁移
@@ -22,16 +22,16 @@
 
 ## 新电脑上下文恢复
 
-- [ ] 先读 [`../CLAUDE.md`](../CLAUDE.md)
-- [ ] 再读 [`../DEVELOPMENT_GUIDE.md`](../DEVELOPMENT_GUIDE.md)
-- [ ] 再读 [`SESSION_LOG.md`](./SESSION_LOG.md)
+- [ ] 先读 [`CLAUDE.md`](../../CLAUDE.md)
+- [ ] 再读 [`DEVELOPMENT_GUIDE.md`](../../DEVELOPMENT_GUIDE.md)
+- [ ] 再读 [`SESSION_LOG.md`](../logs/SESSION_LOG.md)
 - [ ] 确认当前训练阶段和当前主任务
 - [ ] 确认当前仓库分支与工作区状态
 
 ## 新电脑首次对话模板
 
 ```text
-这是云宝助手项目，请先按仓库内的 CLAUDE.md、DEVELOPMENT_GUIDE.md 和 docs/SESSION_LOG.md 恢复上下文。你继续作为我的导师，按 8 周训练计划协助我完成项目，并训练我的开发能力。先总结当前状态，再告诉我下一步。
+这是云宝助手项目，请先按仓库内的 CLAUDE.md、DEVELOPMENT_GUIDE.md 和 docs/logs/SESSION_LOG.md 恢复上下文。你继续作为我的导师，按 8 周训练计划协助我完成项目，并训练我的开发能力。先总结当前状态，再告诉我下一步。
 ```
 
 ## 恢复成功的判断标准

@@ -1,228 +1,251 @@
-# 云朵助手 — 项目规范 & Claude 职责
+# CLAUDE.md
+
+该文件为 AI 编码代理处理此仓库代码时提供指导。
 
 ---
 
-## 项目背景
+## 项目概览
 
-- 技术栈：Tauri 2 + React + TypeScript + Framer Motion
-- 多窗口：`main` / `todo-manager` / `settings` / `focus` / `speech-bubble`
-- 样式：各组件独立 CSS，全局变量在 `App.css`
-- 远程仓库：https://github.com/a1186372348-lab/-（所有 push 推送此仓库，不得修改 remote 地址）
+云宝助手（Zhushou）是一个基于 Tauri 2 + React 19 的桌面宠物应用。它以一朵可爱的云朵形态常驻桌面，具备 AI 对话、待办管理、屏幕感知、天气联动、自主行为等能力。目标是成为用户桌面上"有生命感"的智能伴侣。
 
 ---
 
-## 任务开始前（必须执行）
+## 技术栈
 
-1. 读 `MISTAKES.md`，检查是否命中历史错误
-2. 非简单任务一律先进 Plan 模式
-
----
-
-## MISTAKES.md 机制（必须执行）
-
-- **每次任务开始前必须读 `MISTAKES.md`**，检查是否命中历史错误
-- 命中时在回复开头声明，避免重蹈覆辙
-- 发现 Claude 做错事 → 立刻追加到 `MISTAKES.md`，不要等到周末
-- 此文件 check in 到 git
-
----
-
-## 导师模式（常驻生效）
-
-- 默认把用户视为正在从 AI coding 新手过渡到熟练开发者的学习者
-- 你的任务是协助用户共同完成该项目从 0-1 的彻底开发，并在真实项目推进过程中持续训练用户的开发能力
-- 默认同时追求两件事：完成任务 + 训练开发思维
-- 不只回答“怎么做”，还要解释“为什么这样做”
-- 不直接替用户跳过需求、边界、验收和复盘
-- 遇到学习型任务时，优先使用仓库中的训练文档作为协作依据：
-  - `DEVELOPMENT_GUIDE.md`
-  - `docs/PROJECT_OVERVIEW.md`
-  - `docs/FEATURE_SPEC_TEMPLATE.md`
-  - `docs/DEV_CHECKLIST.md`
-  - `docs/BUG_TRIAGE_TEMPLATE.md`
-  - `docs/AI_COLLAB_PLAYBOOK.md`
-
-### 导师职责
-
-- 开工前：先帮助用户澄清目标、范围、完成定义，不让任务直接滑向“先写代码再说”
-- 进行中：持续指出当前问题属于需求、设计、实现、验证中的哪一类
-- 收尾时：必须给出一次小复盘，说明这次的进步点、薄弱点、下次重点
-- 周期性：主动推动阶段复盘，而不是只围绕当前 bug 或当前功能打转
-
-### 导师交互规则
-
-- 用户提出模糊目标时，先拉回需求模板或边界澄清，再考虑实现
-- 用户想直接让 AI 全包时，要拆分成需求、方案、实现、review 四轮
-- 对学习型任务，不直接给大段实现，先要求用户自己表达理解
-- 对纯交付任务，可以直接推进，但结束时仍补最小验证和复盘
-- 每次只强调一个主要学习重点，避免一次灌输过多概念
-- 如果用户明显跳步骤，优先拉回模板、清单和当前阶段目标
+| 技术 | 用途 |
+|------|------|
+| Tauri 2 | 桌面应用框架（Rust 后端） |
+| React 19 | 前端 UI 框架 |
+| TypeScript 5.8 | 类型安全 |
+| Vite 7 | 前端构建工具 |
+| Zustand 5 | 全局状态管理 |
+| Framer Motion 12 | 动画引擎 |
+| SQLite (tauri-plugin-sql) | 本地数据库 |
+| DeepSeek API (OpenAI SDK) | AI 对话 |
+| Rust + Tokio + Axum | 系统命令 + 桥接服务器 |
+| Howler.js | 音效播放 |
 
 ---
 
-## 8 周训练阶段
-
-### 第 1-2 周：需求与完成定义
-
-- 训练重点：把“我想做什么”写成清晰的功能目标、边界和验收标准
-- 默认动作：优先使用 `docs/FEATURE_SPEC_TEMPLATE.md`
-- 导师要重点检查：目标是否清楚、完成定义是否可验证、是否写清本次不做什么
-
-### 第 3-4 周：模块职责与影响分析
-
-- 训练重点：学会判断代码应该放哪、会影响谁、为什么放在这一层
-- 默认动作：优先结合 `docs/PROJECT_OVERVIEW.md`
-- 导师要重点检查：文件职责、依赖方向、状态真相、影响范围
-
-### 第 5-6 周：排查、验证与回归
-
-- 训练重点：先定位问题，再决定修法；先验证主路径，再谈完成
-- 默认动作：优先使用 `docs/BUG_TRIAGE_TEMPLATE.md` 和 `docs/DEV_CHECKLIST.md`
-- 导师要重点检查：复现步骤、证据、可疑模块、回归验证
-
-### 第 7 周：测试与防回归
-
-- 训练重点：建立最小回归集，理解测试是在保护行为而不是补作业
-- 默认动作：基于 `docs/DEV_CHECKLIST.md` 制定最小回归项
-- 导师要重点检查：主路径、异常路径、相邻功能是否受影响
-
-### 第 8 周：AI 协作规范
-
-- 训练重点：把 AI 从代写工具变成受控协作者
-- 默认动作：优先使用 `docs/AI_COLLAB_PLAYBOOK.md`
-- 导师要重点检查：是否先定需求、是否锁方案、是否做独立 review
-
----
-
-## 复盘要求
-
-### 每次任务后小复盘
-
-- 必须包含：
-  - 这次问题主要属于需求 / 设计 / 实现 / 验证中的哪一类
-  - 这次做对了什么
-  - 这次最该改进的一个点
-  - 下次继续训练的一个重点
-
-### 每周阶段复盘
-
-- 至少检查以下五项能力：
-  - 需求是否清晰
-  - 是否能识别影响范围
-  - 是否能做最小实现
-  - 是否会主动验证
-  - 是否能独立定位问题
-
-### 复盘原则
-
-- 复盘聚焦行为习惯，不做空泛鼓励
-- 复盘要指出真正的卡点，不把所有问题都归咎于“经验不足”
-- 如果用户进步明显，要减少代做比例，提升其主动表达和判断要求
-
----
-
-## Plan 模式协议
-
-> 简单任务 = 单文件、逻辑清晰、改动 < 20 行、无跨模块影响
-> **其余一律先进 Plan 模式**
-
-**流程：**
-1. 进入 Plan 模式，列出所有受影响文件和改动步骤
-2. 与用户反复讨论，直到方案令双方满意
-3. 确认后切换自动接受编辑模式，一次性执行完成
-4. 执行后运行验证命令，结果反馈给用户
-
-**Plan 模式必须回答的问题：**
-- 受影响的文件列表及改动位置（行号范围）
-- 新增/修改的 Tauri 事件名（确认无命名冲突，更新下方事件表）
-- 是否触发 Codex 双审
-
----
-
-## Tauri 技术约束（高频错误防护）
-
-- 新增 Tauri command 后必须在 `lib.rs` 的 `invoke_handler![]` 中注册，并在 `capabilities/default.json` 添加对应权限
-- 多窗口事件通信用 `emitTo(windowLabel, event)`，不用 `emit`（emit 只在当前窗口广播）
-- 窗口标签必须与 tauri.conf.json 定义一致：`main` / `todo-manager` / `settings` / `focus` / `speech-bubble`
-- `useEffect` 监听必须成对注册/解绑，防止内存泄漏
-- 失焦检测用 `getCurrentWindow().onFocusChanged()`，不用 `window.blur`（WebView2 中不可靠）
-- Rust command 错误必须返回 `Result<T, String>`，不能 `unwrap()` / `panic!()`
-
----
-
-## Tauri 事件命名规范
-
-命名格式：`<domain>:<action>`
-
-**已登记事件表（新增事件必须在此登记，避免命名冲突）：**
-
-| 事件名 | 方向 | 用途 |
-|---|---|---|
-| `settings-changed` | SettingsPage → main | 设置保存后通知 |
-| `all-todos-complete` | TodoPage → main | 所有待办完成 |
-| `cc-event` | bridge_server → main | Claude Code Hooks |
-| `speech:show` | main → speech-bubble | 显示气泡 |
-| `speech:append` | main → speech-bubble | 流式追加文字 |
-| `speech:done` | main → speech-bubble | 启动关闭计时 |
-| `focus-start` | main → focus | 专注开始 |
-| `focus-pause` | main → focus | 专注暂停 |
-| `focus-reset` | main → focus | 专注重置 |
-| `focus-phase-change` | main ↔ focus | 阶段切换 |
-| `scheduler:reload` | main → scheduler | 新任务写库后通知 SchedulerPage 刷新 |
-
----
-
-## 验证标准
+## 命令
 
 ```bash
-npm run tauri dev   # 启动完整项目验证
-npx tsc --noEmit    # TS 变更后必须通过
-cargo check         # Rust 变更后必须通过
+# 开发（Tauri 热重载）
+npm run tauri dev
+
+# 前端开发服务器（:1420）
+npm run dev
+
+# 构建打包（exe + msi）
+npm run tauri build
+
+# 类型检查（TS + Rust）
+npm run check
+
+# 仅 TS 类型检查
+npm run check:ts
+
+# 仅 Rust 编译检查
+npm run check:rust
+
+# 验证（等同 check）
+npm run verify
 ```
 
-UI 效果（动画/透明/位置）需用户肉眼确认，Claude 不自主声明通过。
+> 注意：项目未配置单元测试框架。
 
 ---
 
-## Codex 双审规则
+## 项目结构
 
-| 触发条件 | 是否必须双审 |
-|---|---|
-| 跨 2 个以上文件的改动 | ✅ 必须 |
-| Rust + 前端双侧联动 | ✅ 必须 |
-| 新增 Tauri 事件或修改事件名 | ✅ 必须 |
-| 架构或通信协议变更 | ✅ 必须 |
-| 样式调整、数值修改、单文件 bug 修复 | ❌ 跳过 |
-| 在已有模式上的增量扩展 | ❌ 跳过 |
-
-**双审流程：**
-1. Claude 完成方案或代码后，提交给 Codex 审查
-2. Codex 给出改进建议
-3. Claude 有权反驳，说明理由
-4. 分歧时进行一轮辩论，Claude 综合两方观点给出最终路径
-5. 向用户呈现结论，注明采纳或拒绝 Codex 建议的原因
-
----
-
-## App.tsx 结构约定
-
-- 事件监听（`listen`）统一在 `init()` 函数中注册，配对 `unlisten` 防止泄漏
-- 服务启动（`start*`）统一在 `init` useEffect 中调用，cleanup 函数在 `return` 中执行
-- 状态（`useState`）和 Refs（`useRef`）集中在文件顶部声明区
-- 禁止在 App.tsx 中实现业务逻辑（提醒判断、记忆提取等），这些属于各模块职责
-- 禁止 `emit` 直接携带完整复杂数据，只发通知，消费方自己拉取
+```
+zhushou/
+├── src/                          # 前端 React 源码
+│   ├── main.tsx                  # 入口（路由分发器，按 ?page= 渲染）
+│   ├── App.tsx                   # 薄协调层（页面组装 + 用户交互入口）
+│   ├── types.ts                  # 全局类型定义
+│   ├── App.css                   # 全局样式变量
+│   ├── store/index.ts            # Zustand 状态（表情/天气/菜单/处理中）
+│   ├── hooks/                    # React hooks
+│   ├── components/               # UI 组件（CloudPet/InputBar/TodoPage/...）
+│   └── services/                 # 后端服务（ai/db/weather/reminder/...）
+├── src-tauri/                    # Rust 后端
+│   ├── src/commands/             # Tauri 系统命令（截图/光标/设置/...）
+│   ├── src/lib.rs                # 应用初始化 + 插件注册
+│   ├── src/bridge_server.rs      # CC 事件桥接服务器（:3456）
+│   ├── tauri.conf.json           # 窗口配置
+│   └── capabilities/default.json # 权限声明
+├── cloudpet-mcp/                 # MCP 服务器（独立子项目）
+└── public/sounds/                # 音效资源
+```
 
 ---
 
-## 动画规范
+## 架构
 
-- 状态改变 → 驱动动画播放
-- 禁止动画完成度驱动状态改变
+### 分层模型
+
+```
+UI 层（components/）         ← 纯展示 + 动画，不含业务逻辑
+    ↓ props + callbacks
+集成层（App.tsx + hooks）      ← 薄协调：页面组装、用户交互入口、AI 表现协调
+  ├── useWindowOrchestration   ← 窗口编排（子窗口、光标、低干扰、穿透、hover）
+  └── useAppRuntime            ← 运行时（服务生命周期、事件桥接、空闲计时）
+    ↓ invoke / emit / callbacks
+服务层
+  ├── AI 感知（ai.ts / screenMonitor.ts）
+  ├── 行为服务（reminder / scheduler / timeCycle / weather / behaviorScheduler）
+  └── 数据层（db.ts）        ← 所有 SQLite 操作
+    ↓
+Rust 系统层（src-tauri/commands/）  ← 截图、光标、窗口穿透等 OS API
+    ↓
+SQLite 数据库 + Windows 系统调用
+```
+
+### 多窗口架构
+
+应用由 6 个独立 WebView 窗口组成，通过 `emitTo()` 事件通信：
+
+| 窗口 | 页面参数 | 用途 |
+|------|---------|------|
+| `main` | - | 云朵 + 输入框（始终置顶） |
+| `todo-manager` | `?page=todos` | 待办清单 |
+| `settings` | `?page=settings` | API Key 设置 |
+| `focus` | `?page=focus` | 专注时钟 |
+| `scheduler` | `?page=scheduler` | 定时任务 |
+| `speech-bubble` | `?page=speech-bubble` | 气泡显示（流式） |
+
+### 事件通信
+
+- **向下**：React props 传递
+- **跨窗口**：Tauri `emitTo('label', 'event-name', payload)`
+- **服务回调**：回调函数注入（服务不直接访问 React state）
 
 ---
 
-## 开发规范
+## 角色分工与文件所有权
 
-- 修改前必须先 Read 文件，不读不改
-- 不新增文件，优先编辑已有文件
-- 提交前用 `git diff` 确认改动范围
+项目采用严格的角色分工 + 接口契约模式，每层有独立的 `CLAUDE.md`（角色说明）和 `INTERFACE.md`（公共 API 契约）。
+
+| 角色 | 文件所有权 | CLAUDE.md 位置 |
+|------|-----------|---------------|
+| 前端 UI 工程师 | `src/components/`、`src/App.css`、`src/hooks/` | `src/components/CLAUDE.md` |
+| 数据基础工程师 | `src/services/db.ts`、`src/types.ts` | `src/services/data/CLAUDE.md` |
+| AI 感知工程师 | `src/services/ai.ts`、`src/services/screenMonitor.ts` | `src/services/ai/CLAUDE.md` |
+| 行为服务工程师 | `src/services/` 中的行为服务文件 | `src/services/behavior/CLAUDE.md` |
+| Rust 系统工程师 | `src-tauri/` | `src-tauri/CLAUDE.md` |
+| 集成工程师 | `src/App.tsx`、`src/main.tsx`、`src/store/` | （由根 CLAUDE.md 覆盖） |
+
+**关键规则**：修改任何层的文件前，先读该层的 `CLAUDE.md` 和 `INTERFACE.md`。
+
+---
+
+## 代码模式
+
+### 命名约定
+
+| 类别 | 规则 | 示例 |
+|------|------|------|
+| 组件 | PascalCase | `CloudPet`、`TodoPage` |
+| 函数 | camelCase | `startReminderService`、`chatStream` |
+| 常量 | UPPER_SNAKE_CASE | `IDLE_MS`、`PRIORITY_COLOR` |
+| 类型/接口 | PascalCase | `CloudExpression`、`Todo` |
+| CSS 类名 | 短前缀 + 蛇形 | `sp-root`、`tp-item`、`fm-visible` |
+| Rust command | snake_case | `take_screenshot`、`get_cursor_position` |
+
+### 文件组织
+
+- 组件就近原则：`Component/index.tsx` + `Component/index.css`
+- 服务按功能分离：`src/services/` 下每个文件一个职责
+- 类型集中管理：`src/types.ts` 统一定义
+- 样式变量集中：`src/App.css` 定义全局 CSS 变量
+
+### 错误处理
+
+- AI 调用必须 `try/catch` 静默降级，不得向上抛未捕获异常
+- 天气等外部服务使用缓存回退策略
+- Rust command 统一返回 `Result<T, String>`，禁止 `unwrap()` / `panic!()`
+
+### 服务标准模式
+
+```typescript
+// 启动服务，返回 stop 函数
+export function startXxxService(callbacks: XxxCallbacks): () => void {
+  return stopXxxService;
+}
+```
+
+服务不直接访问 React state，外部数据通过回调参数注入。
+
+---
+
+## 接口契约规范
+
+每层维护一个 `INTERFACE.md`，记录该层向外暴露的公共 API。
+
+- 接口签名一旦发布，**不得随意修改参数类型或返回类型**
+- 已发布的导出函数**不得删除**（可标记废弃）
+- 任何签名变更都需要先进 Plan 模式评估影响范围
+- **每次改动后必须更新对应的 `INTERFACE.md`**
+
+---
+
+## 验证清单
+
+提交前执行：
+
+```bash
+npm run check          # TS + Rust 类型检查
+```
+
+### Rust 层新增 Command 检查清单
+
+- [ ] 在 `lib.rs` 的 `invoke_handler![]` 中注册
+- [ ] 在 `capabilities/default.json` 中添加权限
+- [ ] 在 `src-tauri/INTERFACE.md` 中记录
+
+### DB Schema 变更检查清单
+
+- [ ] 通过 `COLUMN_MIGRATIONS` 增量迁移，不得 DROP 列
+- [ ] migration key 格式：`add_columnname_to_tablename`
+- [ ] 在 `src/services/data/INTERFACE.md` 中记录 schema
+
+---
+
+## 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `src/App.tsx` | 薄协调层，页面组装 + 用户交互入口 + AI 表现协调（~96 行） |
+| `src/hooks/useWindowOrchestration.ts` | 窗口编排（子窗口 show/hide、光标轮询、低干扰、穿透、hover 交互） |
+| `src/hooks/useAppRuntime.ts` | 运行时 hook（服务生命周期、事件桥接、空闲计时） |
+| `src/types.ts` | 全局类型定义（表情/天气/待办/定时任务） |
+| `src/store/index.ts` | Zustand 全局状态 |
+| `src/services/db.ts` | SQLite 数据层（CRUD + 迁移） |
+| `src/services/ai.ts` | AI 对话 + 记忆压缩 + 嵌入 |
+| `src/services/screenMonitor.ts` | 屏幕感知 + 主动交互 |
+| `src-tauri/src/lib.rs` | Tauri 初始化 + 命令注册 |
+| `src-tauri/tauri.conf.json` | 窗口配置 |
+
+---
+
+## 按需上下文
+
+| 主题 | 文件 |
+|------|------|
+| UI 组件规范 | `src/components/CLAUDE.md` + `INTERFACE.md` |
+| 数据层接口 | `src/services/data/CLAUDE.md` + `INTERFACE.md` |
+| AI 感知规范 | `src/services/ai/CLAUDE.md` + `INTERFACE.md` |
+| 行为服务规范 | `src/services/behavior/CLAUDE.md` + `INTERFACE.md` |
+| Rust 系统层 | `src-tauri/CLAUDE.md` + `INTERFACE.md` |
+
+---
+
+## 全局禁止事项
+
+- 跨层修改文件前必须确认角色所有权（见上方角色分工表）
+- 不得在 UI 组件中直接调用 AI 服务或 Tauri API（通过集成层中转）
+- 不得在服务层直接操作 UI 状态（通过回调向上传递）
+- 不得修改 `store/index.ts` 的 state shape（除非集成层明确需要）
+- 修改 Prompt 前必须写出改前/改后对比
+- 新增表情必须同时提供：`types.ts` 枚举值 + `public/expressions/` 图片 + `CloudRenderer` 动画 variant

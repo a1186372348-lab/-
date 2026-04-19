@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check:ts": "npx tsc --noEmit",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "check": "npm run check:ts && npm run check:rust",
+    "verify": "npm run check",
     "preview": "vite preview",
     "tauri": "tauri"
   },

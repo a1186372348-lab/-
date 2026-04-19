@@ -1,0 +1,119 @@
+{
+  "project": "Zhushou",
+  "branchName": "ralph/layer-1-architecture",
+  "description": "为 zhushou 建立 Layer 1 架构治理方案，明确 App.tsx 收薄边界、窗口编排层与应用运行时层归属，以及分阶段迁移顺序。",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "盘点 App.tsx 现有职责并标记唯一归属",
+      "description": "作为后续接手 Layer 1 治理的工程师，我希望在 `tasks/prd-layer-1-architecture.md` 中看到 `src/App.tsx` 的职责总表，以便先锁定现状再推进拆分。",
+      "acceptanceCriteria": [
+        "`tasks/prd-layer-1-architecture.md` contains a responsibility inventory section for `src/App.tsx`",
+        "The inventory explicitly covers page assembly, user interaction entrypoints, window orchestration, service startup and cleanup, runtime configuration reactions, event bridging, AI presentation coordination, local UI state, and disturbance, presence, or click-through control",
+        "Every listed responsibility is assigned one future primary owner layer with no duplicated primary ownership",
+        "The document states that this step only identifies and classifies responsibilities and does not define hook names, APIs, or file-splitting details",
+        "A reader can answer why Layer 1 must inventory responsibilities before refactoring by reading this section alone",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-002",
+      "title": "定义薄协调层白名单与禁入清单",
+      "description": "作为后续实现者，我希望在 `tasks/prd-layer-1-architecture.md` 中看到薄协调层允许保留和必须迁出的边界，以便新增逻辑时不再靠主观判断是否进入 `App.tsx`。",
+      "acceptanceCriteria": [
+        "`tasks/prd-layer-1-architecture.md` contains a thin coordination layer boundary section",
+        "The allowlist explicitly includes page assembly, top-level user interaction entrypoints, a small amount of presentation-oriented local UI state, and calls into lower layers",
+        "The denylist explicitly includes window rule ownership, service lifecycle ownership, long-lived polling or listener governance, AI-to-presentation coordination ownership, and disturbance, presence, or click-through decision ownership",
+        "No allowlist item conflicts with any denylist item",
+        "The section states that Layer 1 defines keep versus migrate boundaries without requiring every existing logic path to move in one pass",
+        "A reader can decide whether a new logic change belongs in `App.tsx` by using this section alone",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-003",
+      "title": "定义窗口编排层边界与意图级接口",
+      "description": "作为负责多窗口治理的工程师，我希望在 `tasks/prd-layer-1-architecture.md` 中看到独立的窗口编排层边界，以便主协调层只表达意图而不直接承载窗口规则。",
+      "acceptanceCriteria": [
+        "`tasks/prd-layer-1-architecture.md` contains a window orchestration layer section",
+        "The section explicitly lists show and hide, position synchronization, bounds updates, hover delay handling, child window mutual exclusion, cursor-assisted checks, and parent-child window coordination as window orchestration responsibilities",
+        "The section states that upper layers call intent-level actions instead of handling low-level window API details directly",
+        "The section states that Layer 1 keeps the current window set unchanged: `main`, `speech-bubble`, `todo-manager`, `settings`, `focus`, and `scheduler`",
+        "The section explains the distinct prerequisites this layer provides to Layer 2, Layer 3, Layer 4, and Layer 5",
+        "A reader can distinguish page rendering logic from window orchestration rules by using this section alone",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-004",
+      "title": "定义应用运行时层边界与能力范围",
+      "description": "作为负责服务生命周期治理的工程师，我希望在 `tasks/prd-layer-1-architecture.md` 中看到独立的应用运行时层边界，以便初始化、清理、配置响应和回调派发不再散落在主入口。",
+      "acceptanceCriteria": [
+        "`tasks/prd-layer-1-architecture.md` contains an application runtime layer section",
+        "The section explicitly lists initialization, cleanup, configuration-change reactions, upward callback dispatch, and runtime enable or disable decisions as application runtime responsibilities",
+        "The section includes exactly these in-scope runtime capabilities: `weather`, `reminder`, `scheduler`, `screenMonitor`, `timeCycle`, and `colorSampler`",
+        "The section distinguishes resident services from conditional services",
+        "The section states that this layer does not change existing business behavior and does not become a new business event bus",
+        "The section explains the distinct prerequisites this layer provides to Layer 2, Layer 3, Layer 4, and Layer 5",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-005",
+      "title": "定义 Layer 1 分步实施顺序与阶段门禁",
+      "description": "作为项目维护者，我希望在 `tasks/prd-layer-1-architecture.md` 中看到稳定的 Layer 1 迁移顺序，以便后续可以按阶段推进而不是进行大爆炸式重构。",
+      "acceptanceCriteria": [
+        "`tasks/prd-layer-1-architecture.md` contains an ordered implementation plan with at least these five phases: responsibility freeze, window orchestration migration, runtime layer migration, App coordination thinning confirmation, and handoff prerequisites for Layer 2 to Layer 5",
+        "Each phase includes the phase goal, inputs, outputs, behavior invariants, and the condition for entering the next phase",
+        "The plan explicitly prohibits mixing Layer 1 work with Layer 2, Layer 3, Layer 4, or Layer 5 implementation in the same phase",
+        "Every phase restates that user-visible behavior must remain unchanged while the governance work proceeds",
+        "A reader can follow the migration order and phase boundaries without inventing missing steps",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    },
+    {
+      "id": "US-006",
+      "title": "收敛 Layer 1 最终交付边界并映射后续输入",
+      "description": "作为后续执行 Layer 2 到 Layer 5 的工程师，我希望在 `tasks/prd-layer-1-architecture.md` 中看到清晰的 Layer 1 交付边界和后续输入映射，以便不必回头重新定义基础架构前提。",
+      "acceptanceCriteria": [
+        "`tasks/prd-layer-1-architecture.md` contains a final delivery boundary section for Layer 1",
+        "The section states that Layer 1 covers architecture and code-layer governance only and excludes detailed solution design for Layer 2, Layer 3, Layer 4, Layer 5, and Layer 6",
+        "The final deliverables list includes the responsibility inventory, thin coordination layer boundary, window orchestration layer boundary, application runtime layer boundary, and phased implementation order",
+        "The section maps direct reusable inputs from Layer 1 to Layer 2, Layer 3, Layer 4, and Layer 5 separately",
+        "The section explicitly excludes database schema changes, event semantics redesign, AI output protocol design, and new end-user features",
+        "A reader can understand what Layer 1 does, what it does not do, and how it supports later layers from this closing section alone",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "",
+      "retryCount": 0,
+      "blocked": false
+    }
+  ]
+}

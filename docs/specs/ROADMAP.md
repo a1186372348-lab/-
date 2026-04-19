@@ -1,0 +1,95 @@
+﻿# 项目路线图
+
+> 记录当前阶段重点、明确暂不做事项、下一阶段候选工作。状态和优先级与 [功能状态矩阵](./FEATURE_MATRIX.md) 保持一致。
+
+---
+
+## 当前阶段：项目结构清理与工程化补强（已完成）
+
+**目标**：建立清晰的仓库结构、补齐文档体系、统一检查入口、固化代码治理规则，为后续可持续迭代打基础。
+
+**时间范围**：2026 年 Q2
+**阶段状态**：已完成（2026-04-18 收口通过）
+
+---
+
+### 本轮阶段重点
+
+| 优先级 | 工作项 | 状态 | 关联 |
+|---|---|---|---|
+| P0 | 根目录结构盘点与资产处理结论 | shipped | [ROOT_STRUCTURE.md](../architecture/ROOT_STRUCTURE.md) |
+| P0 | 建立项目状态总控文档 | shipped | [PROJECT_STATUS.md](../PROJECT_STATUS.md) |
+| P0 | 功能需求卡体系（9 项核心能力） | shipped | [INDEX.md](./INDEX.md) |
+| P0 | 功能状态矩阵 | shipped | [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) |
+| P1 | 架构分层说明文档 | shipped | [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) |
+| P1 | 事件文档 | shipped | [EVENTS.md](../architecture/EVENTS.md) |
+| P1 | 关键数据流文档 | shipped | [DATA_FLOW.md](../architecture/DATA_FLOW.md) |
+| P1 | 技术债文档 | shipped | [TECH_DEBT.md](../architecture/TECH_DEBT.md) |
+| P2 | 测试策略文档 | shipped | [TEST_STRATEGY.md](../process/TEST_STRATEGY.md) |
+| P2 | 最小回归清单 | shipped | [REGRESSION_CHECKLIST.md](../process/REGRESSION_CHECKLIST.md) |
+| P2 | 统一 package.json 检查脚本入口 | shipped | package.json |
+| P2 | 重组 docs 目录并修复文档导航 | shipped | DEVELOPMENT_GUIDE.md |
+| P2 | 固化后续代码治理规则 | shipped | DEVELOPMENT_GUIDE.md |
+| P2 | 验证结构清理闭环 | shipped | [PROJECT_STATUS.md](../PROJECT_STATUS.md) |
+
+---
+
+### 本轮阶段明确未做
+
+以下事项在本轮 **没有推进**：
+
+1. **不新增终端用户功能** — 本轮专注工程基础，不动产品能力
+2. **不大规模重写 `src/App.tsx`** — 通过文档和规则限制增长，不做代码级拆分
+3. **不搭建完整测试框架** — 只建立测试策略文档和最小回归清单
+4. **不建立 CI/CD 流程** — 当前为单人开发 + AI 协作，手动检查即可
+5. **不调整产品方向或 AI 能力范围** — 不改交互策略、不改模型选型
+6. **不拆分 `cloudpet-mcp/` 为独立仓库** — 保持同仓维护现状
+
+---
+
+## 下一阶段候选工作
+
+结构清理完成后，以下方向按优先级排列供后续选择：
+
+### 候选 A：`src/App.tsx` 治理（P0）
+
+- **动机**：主入口文件过重是当前最大工程风险，架构文档和技术债文档中均已标记
+- **范围**：将协调逻辑拆入服务层，主入口仅保留窗口管理和事件监听
+- **前置条件**：架构分层文档（US-009）和技术债文档（US-012）完成后，拆分才有明确方向
+
+### 候选 B：轮询替换为事件驱动（P1）
+
+- **动机**：Scheduler（60 秒）、TodoPage 同步（1 秒）等使用轮询，有性能和重复触发风险
+- **范围**：识别可替换的轮询点，逐步改为 Tauri 事件通知
+- **前置条件**：事件文档（US-010）和数据流文档（US-011）完成后，替换路径才清晰
+
+### 候选 C：新增功能需求开发（P1）
+
+- **动机**：当前 9 项核心功能均已上线，后续根据使用反馈决定新增优先级
+- **范围**：待定，按需求卡模板（`docs/specs/FEATURE_SPEC_TEMPLATE.md`）先补需求卡再实现
+- **前置条件**：治理规则（US-017）固化后，确保新功能遵循“先补卡再开发”流程
+
+### 候选 D：自动化测试基础建设（P2）
+
+- **动机**：当前无自动化测试，回归全靠人工，随着功能增加风险上升
+- **范围**：为主路径建立最小单元 / 集成测试集
+- **前置条件**：测试策略文档（US-013）和最小回归清单（US-014）完成后，测试范围才有依据
+
+---
+
+## 阶段划分概览
+
+```
+Phase 1: 结构盘点与顶层清理  [██████████] 已完成（US-001 ~ US-002）
+Phase 2: 文档体系补齐        [██████████] 已完成（US-003 ~ US-012）
+Phase 3: 检查入口与治理规则  [██████████] 已完成（US-013 ~ US-018）
+```
+
+---
+
+## 导航
+
+- [功能状态矩阵](./FEATURE_MATRIX.md)
+- [需求卡目录索引](./INDEX.md)
+- [项目状态](../PROJECT_STATUS.md)
+- [开发指南入口](../../DEVELOPMENT_GUIDE.md)
