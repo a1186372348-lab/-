@@ -15,3 +15,57 @@
   - 运行时服务和事件桥接是第二大迁出块
   - 低干扰模式依赖 onInteractionChange 回调连接模块级函数和 React 组件
 ---
+
+### Validation 2026-04-19 14:30 - US-001 - PASS
+- Summary: 所有5条验收标准均通过。App.tsx 顶部新增52行职责冻结注释块，明确区分薄协调层保留、迁往 useWindowOrchestration、迁往 useAppRuntime 三类职责。git diff 确认仅新增注释无运行时代码变更。TS typecheck 通过。Rust check 失败为预存环境问题（target 路径指向 D:\product 而非 D:\project），非本 story 引入。
+- Evidence: git show 1f9adb5 确认仅 +53 行注释；npx tsc --noEmit 成功；git stash 后 Rust check 同样失败证明为预存问题
+---
+
+## 2026-04-19 15:00 - US-002
+- 创建 `src/hooks/useWindowOrchestration.ts` 骨架文件，定义所有窗口编排所需的基础 refs
+- refs 包括：4个子窗口可见性、4个边界缓存、光标轮询计时器、10个 hover 延时计时器、气泡就绪标记、交互回调 ref
+- App.tsx 未被修改，hook 未被导入或调用
+- 更改的文件：src/hooks/useWindowOrchestration.ts（新增 65 行）
+- **未来迭代的学习：**
+  - App.tsx 的模块级变量（todoVisible, cursorPollTimer 等）对应 hook 中的 useRef，后续迁移时需注意闭包捕获差异
+  - Bounds 类型从 App.tsx 迁入 hook 内部定义
+  - US-003 将开始往 hook 中填入实际的 show/hide 和轮询逻辑
+---
+
+### Validation 2026-04-19 16:00 - US-002 - PASS
+- Summary: 所有6条验收标准均通过。`useWindowOrchestration.ts` 存在并导出 hook，定义了4个子窗口可见性 ref、4个边界缓存 ref、光标轮询计时器 ref、10个 hover 延时计时器 ref、气泡就绪标记和交互回调 ref。App.tsx 未导入或调用该 hook。git diff 确认 App.tsx 无新增改动。TS typecheck 通过。Rust check 失败为预存环境问题（target 路径指向 D:\product 而非 D:\project），非本 story 引入。
+- Evidence: `cat src/hooks/useWindowOrchestration.ts` 确认 65 行骨架代码；`grep useWindowOrchestration src/App.tsx` 仅命中注释行 15；`git diff -- src/App.tsx` 无输出；`npx tsc --noEmit` 成功
+---
+
+## 2026-04-19 - US-003
+- 将 `startCursorPoll`、`stopCursorPoll` 和 4 组子窗口的 8 个 show/hide helper 从 App.tsx 模块级代码迁移到 `useWindowOrchestration` hook
+- 所有迁移逻辑统一读写 hook 内部 refs（todoVisibleRef, settingsBoundsRef 等），不再引用 App.tsx 的模块级变量
+- hook 保留了 `onInteractionChangeRef` 供过渡期低干扰模式使用
+- App.tsx 未被修改，仍使用旧路径
+- 更改的文件：src/hooks/useWindowOrchestration.ts（65 → 295 行）
+- **未来迭代的学习：**
+  - App.tsx 的 show/hide 函数有互斥关系：showScheduler 先 hideTodo，showTodo 先 hideScheduler（todo 和 scheduler 共享同一侧位置）
+  - startCursorPoll 内部用闭包变量 `prevInsideXxx` 追踪光标进出状态，迁移时需要保持在 useCallback 内部
+  - hideFocusWindow 的 stopCursorPoll 条件只检查 todoVisible 和 settingsVisible，未包含 schedulerVisible（与原代码一致）
+  - 所有 useCallback 使用空依赖数组，因为它们只访问稳定的 refs 和其他稳定的 useCallback 引用
+---
+
+### Validation 2026-04-19 17:00 - US-003 - PASS
+- Summary: 所有6条验收标准均通过。`useWindowOrchestration.ts`（295行）包含 `startCursorPoll`、`stopCursorPoll` 及 4 组共 8 个 show/hide helper（todo/settings/focus/scheduler）。所有迁移函数统一读写 hook 内部 refs，不引用 App.tsx 模块级变量。`onInteractionChangeRef` 在 4 个位置被正确调用。App.tsx 仅在注释中引用 hook，无实际导入或调用。TS typecheck 通过。
+- Evidence: `cat src/hooks/useWindowOrchestration.ts` 确认 295 行完整实现；`grep useWindowOrchestration src/App.tsx` 仅命中注释行 15；`npx tsc --noEmit` 成功无输出
+---
+
+## 2026-04-19 - US-004
+- 将 `initWindows`（子窗口初始定位）、`onMoved`（主窗口移动联动）和 `onFocusChanged`（失焦重置）三个 useEffect 迁入 `useWindowOrchestration` hook
+- 新增 `WindowOrchestrationOpts` 接口，hook 接受 `onInteractionChange` 回调参数
+- 新增气泡联动常量 `CLOUD_TOP_OFFSET`（40）、`BUBBLE_WIN_H`（120）到 hook 内部
+- 新增 `unlistenMoveRef`、`unlistenFocusRef` 用于事件清理
+- 新增同步 useEffect 将外部 `onInteractionChange` 写入 ref
+- 新增卸载清理 useEffect 释放 `unlistenMove`/`unlistenFocus`
+- App.tsx 未被修改，hook 仍无调用方
+- 更改的文件：src/hooks/useWindowOrchestration.ts（295 → 464 行，+108 行新增，-2 行修改）
+- **未来迭代的学习：**
+  - `initWindows` 的 onMoved 回调捕获 `mainSize` 和 `sf` 在闭包中，这是与原代码一致的行为（主窗口大小固定不变）
+  - `onFocusChanged` 处理器在 hook 中只调用 `onInteractionChangeRef.current?.()`；低干扰 refs 的重置（isPetHoveredRef 等）将在 US-007 迁入后补充
+  - hook 签名从无参变为接受可选 `opts` 对象，此变更不影响 App.tsx 因为 hook 尚未被导入
+---
