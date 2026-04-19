@@ -7,11 +7,13 @@ interface AppState {
   showHoverMenu: boolean;
   isProcessing: boolean;
   focusClock: FocusClockState | null;
+  ccActive: boolean;
   setExpression: (expr: CloudExpression) => void;
   setWeather: (condition: WeatherCondition) => void;
   setShowHoverMenu: (show: boolean) => void;
   setIsProcessing: (processing: boolean) => void;
   setFocusClock: (updater: FocusClockState | null | ((prev: FocusClockState | null) => FocusClockState | null)) => void;
+  setCcActive: (active: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -20,6 +22,7 @@ export const useAppStore = create<AppState>((set) => ({
   showHoverMenu: false,
   isProcessing: false,
   focusClock: null,
+  ccActive: false,
 
   setExpression: (expr) => set({ expression: expr }),
   setWeather: (condition) => set({ weather: condition }),
@@ -29,5 +32,6 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       focusClock: typeof updater === 'function' ? updater(state.focusClock) : updater,
     })),
+  setCcActive: (active) => set({ ccActive: active }),
 }));
 
