@@ -12,32 +12,19 @@
  * ║    isPassthrough, ccActive, disturbMode（展示层状态）             ║
  * ║  - 展示层常量：thunderSound                                      ║
  * ║                                                                  ║
- * ║ 【迁往 useWindowOrchestration】                                  ║
- * ║  - 子窗口 show/hide：showTodoWindow, hideTodoWindow,             ║
- * ║    showSettingsWindow, hideSettingsWindow, showFocusWindow,       ║
- * ║    hideFocusWindow, showSchedulerWindow, hideSchedulerWindow      ║
- * ║  - 光标轮询：startCursorPoll, stopCursorPoll, cursorPollTimer    ║
- * ║  - 子窗口可见性跟踪：todoVisible, settingsVisible,               ║
- * ║    focusVisible, schedulerVisible                                 ║
- * ║  - 子窗口边界缓存：todoBounds, settingsBounds,                   ║
- * ║    focusBounds, schedulerBounds                                   ║
- * ║  - 气泡窗口：showSpeech, bubbleReadyRef,                         ║
- * ║    CLOUD_TOP_OFFSET, BUBBLE_WIN_H                                 ║
- * ║  - Hover 计时器与 handlers：hoverTimer, inputBarTimer,            ║
- * ║    todoShowTimer/HideTimer, settingsShowTimer/HideTimer,          ║
- * ║    focusShowTimer/HideTimer, schedulerShowTimer/HideTimer,        ║
- * ║    handleTodoBtnEnter/Leave, handleFocusBtnEnter/Leave,           ║
- * ║    handleSettingsBtnEnter/Leave, handleSchedulerBtnEnter/Leave,   ║
- * ║    handleMenuZoneEnter/Leave                                      ║
+ * ║ 【已迁往 useWindowOrchestration（US-006）】                      ║
+ * ║  ✓ 子窗口 show/hide、光标轮询、子窗口可见性与边界缓存           ║
+ * ║  ✓ 气泡窗口 showSpeech、hover 计时器与按钮/菜单 handlers        ║
+ * ║  ✓ 窗口初始化与联动（initWindows、onMoved）                     ║
+ * ║                                                                  ║
+ * ║ 【迁往 useWindowOrchestration（待 US-007/008）】                 ║
  * ║  - 低干扰模式：disturbModeRef, applyDim, disturbPollRef,         ║
  * ║    disturbHoverStartRef, 全屏轮询 useEffect                      ║
  * ║  - Ctrl 穿透：keydown/keyup/blur 键盘监听                       ║
  * ║  - 宠物/输入栏交互：handlePetAreaEnter/Leave,                    ║
  * ║    handleInputBarEnter/Leave, handleInputFocus/Blur,              ║
  * ║    isPetHoveredRef, isInputHoveredRef, isInputFocusedRef          ║
- * ║  - 窗口初始化与联动：initWindows, onMoved, onFocusChanged        ║
  * ║  - Mousemove 兜底：document mousemove bounds check               ║
- * ║  - 交互回调 ref：onInteractionChange                             ║
  * ║                                                                  ║
  * ║ 【迁往 useAppRuntime】                                           ║
  * ║  - 常驻服务生命周期：startWeatherSync, startReminderService,      ║
@@ -53,8 +40,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Howl } from 'howler';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { resetClient, chatStream } from './services/ai';
@@ -66,6 +52,7 @@ import { startReminderService } from './services/reminder';
 import { startColorSampler, stopColorSampler } from './services/colorSampler';
 import { startTimeCycleService } from './services/timeCycle';
 import { startSchedulerService } from './services/scheduler';
+import { useWindowOrchestration } from './hooks/useWindowOrchestration';
 import CloudPet from './components/CloudPet';
 import InputBar from './components/InputBar';
 import HoverMenu from './components/HoverMenu';
@@ -77,221 +64,9 @@ const thunderSound = new Howl({
   preload: false,
 });
 
-// 绌洪棽璁℃椂鍣細30 鍒嗛挓鏃犳搷浣滆Е鍙?sleepy
+// 空闲计时器：30 分钟无操作触发 sleepy
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 const IDLE_MS = 30 * 60 * 1000;
-
-// 鎮仠璁℃椂鍣細榧犳爣杩涘叆瀹瑰櫒 600ms 鍚庢樉绀鸿彍鍗?
-let hoverTimer: ReturnType<typeof setTimeout> | null = null;
-let inputBarTimer: ReturnType<typeof setTimeout> | null = null;
-// 寰呭姙/璁剧疆绐楀彛鏄剧ず/闅愯棌璁℃椂鍣?
-let todoShowTimer: ReturnType<typeof setTimeout> | null = null;
-let todoHideTimer: ReturnType<typeof setTimeout> | null = null;
-let settingsShowTimer: ReturnType<typeof setTimeout> | null = null;
-let settingsHideTimer: ReturnType<typeof setTimeout> | null = null;
-let focusShowTimer: ReturnType<typeof setTimeout> | null = null;
-let focusHideTimer: ReturnType<typeof setTimeout> | null = null;
-let schedulerShowTimer: ReturnType<typeof setTimeout> | null = null;
-let schedulerHideTimer: ReturnType<typeof setTimeout> | null = null;
-
-// 鍏夋爣杞锛氳褰曞瓙绐楀彛鍙鐘舵€佸拰鐗╃悊杈圭晫
-let todoVisible = false;
-let settingsVisible = false;
-let focusVisible = false;
-let schedulerVisible = false;
-
-// 浣庡共鎵拌眮鍏嶏細浠绘剰浜や簰鍙戠敓鏃惰皟鐢紝閫氱煡缁勪欢閲嶆柊璁＄畻閫忔槑搴?
-let onInteractionChange: (() => void) | null = null;
-type Bounds = { x: number; y: number; w: number; h: number };
-let todoBounds: Bounds | null = null;
-let settingsBounds: Bounds | null = null;
-let focusBounds: Bounds | null = null;
-let schedulerBounds: Bounds | null = null;
-let cursorPollTimer: ReturnType<typeof setInterval> | null = null;
-
-function stopCursorPoll() {
-  if (cursorPollTimer) { clearInterval(cursorPollTimer); cursorPollTimer = null; }
-}
-
-function startCursorPoll() {
-  if (cursorPollTimer) return;
-  let prevInsideTodo = false;
-  let prevInsideSettings = false;
-  let prevInsideFocus = false;
-  let prevInsideScheduler = false;
-
-  cursorPollTimer = setInterval(async () => {
-    if (!todoVisible && !settingsVisible && !focusVisible && !schedulerVisible) { stopCursorPoll(); return; }
-
-    const [cx, cy]: [number, number] = await invoke('get_cursor_position');
-
-    if (todoVisible && todoBounds) {
-      const inside = cx >= todoBounds.x && cx < todoBounds.x + todoBounds.w
-                  && cy >= todoBounds.y && cy < todoBounds.y + todoBounds.h;
-      if (inside && !prevInsideTodo) {
-        prevInsideTodo = true;
-        if (todoHideTimer) { clearTimeout(todoHideTimer); todoHideTimer = null; }
-      } else if (!inside && prevInsideTodo) {
-        prevInsideTodo = false;
-        if (!todoHideTimer) todoHideTimer = setTimeout(hideTodoWindow, 500);
-      }
-    }
-
-    if (settingsVisible && settingsBounds) {
-      const inside = cx >= settingsBounds.x && cx < settingsBounds.x + settingsBounds.w
-                  && cy >= settingsBounds.y && cy < settingsBounds.y + settingsBounds.h;
-      if (inside && !prevInsideSettings) {
-        prevInsideSettings = true;
-        if (settingsHideTimer) { clearTimeout(settingsHideTimer); settingsHideTimer = null; }
-      } else if (!inside && prevInsideSettings) {
-        prevInsideSettings = false;
-        if (!settingsHideTimer) settingsHideTimer = setTimeout(hideSettingsWindow, 500);
-      }
-    }
-
-    if (focusVisible && focusBounds) {
-      const inside = cx >= focusBounds.x && cx < focusBounds.x + focusBounds.w
-                  && cy >= focusBounds.y && cy < focusBounds.y + focusBounds.h;
-      if (inside && !prevInsideFocus) {
-        prevInsideFocus = true;
-        if (focusHideTimer) { clearTimeout(focusHideTimer); focusHideTimer = null; }
-      } else if (!inside && prevInsideFocus) {
-        prevInsideFocus = false;
-        if (!focusHideTimer) focusHideTimer = setTimeout(hideFocusWindow, 500);
-      }
-    }
-
-    if (schedulerVisible && schedulerBounds) {
-      const inside = cx >= schedulerBounds.x && cx < schedulerBounds.x + schedulerBounds.w
-                  && cy >= schedulerBounds.y && cy < schedulerBounds.y + schedulerBounds.h;
-      if (inside && !prevInsideScheduler) {
-        prevInsideScheduler = true;
-        if (schedulerHideTimer) { clearTimeout(schedulerHideTimer); schedulerHideTimer = null; }
-      } else if (!inside && prevInsideScheduler) {
-        prevInsideScheduler = false;
-        if (!schedulerHideTimer) schedulerHideTimer = setTimeout(hideSchedulerWindow, 500);
-      }
-    }
-  }, 150);
-}
-
-async function showSchedulerWindow() {
-  // 互斥：先隐藏 todo
-  await hideTodoWindow();
-  const schedulerWin = await WebviewWindow.getByLabel('scheduler');
-  if (!schedulerWin) return;
-  const mainWin = getCurrentWindow();
-  const mainPos = await mainWin.outerPosition();
-  const sf = await mainWin.scaleFactor();
-  const schedulerWidth = 306, gap = 8;
-  await schedulerWin.setPosition(new LogicalPosition(mainPos.x / sf - schedulerWidth - gap, mainPos.y / sf));
-  await schedulerWin.show();
-  const pos = await schedulerWin.outerPosition();
-  const size = await schedulerWin.outerSize();
-  schedulerBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
-  schedulerVisible = true;
-  startCursorPoll();
-}
-
-async function hideSchedulerWindow() {
-  const schedulerWin = await WebviewWindow.getByLabel('scheduler');
-  if (!schedulerWin) return;
-  const visible = await schedulerWin.isVisible();
-  if (visible) await schedulerWin.hide();
-  schedulerVisible = false;
-  schedulerBounds = null;
-  if (!todoVisible && !settingsVisible && !focusVisible) stopCursorPoll();
-}
-
-async function showTodoWindow() {
-  // 互斥：先隐藏 scheduler
-  await hideSchedulerWindow();
-  const todoWin = await WebviewWindow.getByLabel('todo-manager');
-  if (!todoWin) return;
-  const mainWin = getCurrentWindow();
-  const mainPos = await mainWin.outerPosition();
-  const sf = await mainWin.scaleFactor();
-  const todoWidth = 306, gap = 8;
-  await todoWin.setPosition(new LogicalPosition(mainPos.x / sf - todoWidth - gap, mainPos.y / sf));
-  await todoWin.show();
-  const pos = await todoWin.outerPosition();
-  const size = await todoWin.outerSize();
-  todoBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
-  todoVisible = true;
-  onInteractionChange?.();
-  startCursorPoll();
-}
-
-async function hideTodoWindow() {
-  const todoWin = await WebviewWindow.getByLabel('todo-manager');
-  if (!todoWin) return;
-  const visible = await todoWin.isVisible();
-  if (visible) await todoWin.hide();
-  todoVisible = false;
-  todoBounds = null;
-  onInteractionChange?.();
-  if (!settingsVisible && !focusVisible && !schedulerVisible) stopCursorPoll();
-}
-
-async function showSettingsWindow() {  const settingsWin = await WebviewWindow.getByLabel('settings');
-  if (!settingsWin) return;
-  const mainWin = getCurrentWindow();
-  const mainPos = await mainWin.outerPosition();
-  const mainSize = await mainWin.outerSize();
-  const sf = await mainWin.scaleFactor();
-  const gap = 8;
-  await settingsWin.setPosition(
-    new LogicalPosition(mainPos.x / sf + mainSize.width / sf + gap, mainPos.y / sf)
-  );
-  await settingsWin.show();
-  const pos = await settingsWin.outerPosition();
-  const size = await settingsWin.outerSize();
-  settingsBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
-  settingsVisible = true;
-  onInteractionChange?.();
-  startCursorPoll();
-}
-
-async function hideSettingsWindow() {
-  const settingsWin = await WebviewWindow.getByLabel('settings');
-  if (!settingsWin) return;
-  const visible = await settingsWin.isVisible();
-  if (visible) await settingsWin.hide();
-  settingsVisible = false;
-  settingsBounds = null;
-  onInteractionChange?.();
-  if (!todoVisible && !focusVisible && !schedulerVisible) stopCursorPoll();
-}
-
-async function showFocusWindow() {
-  const focusWin = await WebviewWindow.getByLabel('focus');
-  if (!focusWin) return;
-  const mainWin = getCurrentWindow();
-  const mainPos = await mainWin.outerPosition();
-  const mainSize = await mainWin.outerSize();
-  const sf = await mainWin.scaleFactor();
-  const focusWidth = 240, focusHeight = 320, gap = 8;
-  // 鏄剧ず鍦ㄤ富绐楀彛姝ｄ笂鏂瑰眳涓紝椤堕儴涓庝富绐楀彛椤堕儴瀵归綈
-  const lx = mainPos.x / sf + mainSize.width / sf / 2 - focusWidth / 2;
-  const ly = mainPos.y / sf - focusHeight - gap;
-  await focusWin.setPosition(new LogicalPosition(lx, ly));
-  await focusWin.show();
-  const pos = await focusWin.outerPosition();
-  const size = await focusWin.outerSize();
-  focusBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
-  focusVisible = true;
-  startCursorPoll();
-}
-
-async function hideFocusWindow() {
-  const focusWin = await WebviewWindow.getByLabel('focus');
-  if (!focusWin) return;
-  const visible = await focusWin.isVisible();
-  if (visible) await focusWin.hide();
-  focusVisible = false;
-  focusBounds = null;
-  if (!todoVisible && !settingsVisible) stopCursorPoll();
-}
 
 export default function App() {
   const {
@@ -305,38 +80,9 @@ export default function App() {
     setIsProcessing,
   } = useAppStore();
 
-  // ── 气泡窗口控制 ─────────────────────────────────────────────
-  // 云朵顶部距主窗口顶部约 40px（逻辑像素），气泡窗口高 120px
-  const CLOUD_TOP_OFFSET = 40;
-  const BUBBLE_WIN_H = 120;
-  const bubbleReadyRef = useRef(false); // 记录气泡窗口是否已首次 show（WebView 已初始化）
-
-  const showSpeech = useCallback(async (text: string, durationMs = 5000) => {
-    try {
-      const mainWin = getCurrentWindow();
-      const bubbleWin = await WebviewWindow.getByLabel('speech-bubble');
-      if (!bubbleWin) return;
-      const pos = await mainWin.outerPosition();
-      const sf = await mainWin.scaleFactor();
-      // 1. 先定位（窗口隐藏时定位不会闪烁）
-      await bubbleWin.setPosition(new LogicalPosition(
-        pos.x / sf,
-        Math.max(0, pos.y / sf + CLOUD_TOP_OFFSET - BUBBLE_WIN_H),
-      ));
-      // 2. 首次 show：等 WebView 完成初始化再 emit
-      if (!bubbleReadyRef.current) {
-        await bubbleWin.show();
-        bubbleReadyRef.current = true;
-        // 等待 React 挂载并注册 listen（WebView2 冷启动约需 300ms）
-        await new Promise<void>(r => setTimeout(r, 400));
-      }
-      // 3. 发送内容，React 渲染气泡并关闭穿透
-      await emit('speech:show', { text, duration: durationMs });
-    } catch {
-      // 静默失败
-    }
-  }, []);
-
+  // ── 窗口编排 hook ───────────────────────────────────────────
+  const winOrch = useWindowOrchestration({ setShowHoverMenu });
+  const { showSpeech } = winOrch;
 
   const reminderIntervalRef = useRef<number>(60);
 
@@ -348,8 +94,6 @@ export default function App() {
     totalSecs: number;
   } | null>(null);
   const [showInputBar, setShowInputBar] = useState(false);
-  const unlistenMoveRef = useRef<(() => void) | null>(null);
-  const unlistenFocusRef = useRef<(() => void) | null>(null);
   const petAreaRef = useRef<HTMLDivElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
   const showHoverMenuRef = useRef(false);
@@ -357,7 +101,7 @@ export default function App() {
   const disturbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const disturbHoverStartRef = useRef<number | null>(null);
 
-  // 浣庡共鎵版ā寮忥細0=姝ｅ父锛?=鍗婇€忥紙鏈€澶у寲搴旂敤锛夛紝2=闅愯棌锛堟棤杈规鍏ㄥ睆娓告垙锛?
+  // 低干扰模式：0=正常，1=半透（最大化应用），2=隐藏（无边框全屏游戏）
   const disturbModeRef = useRef<0 | 1 | 2>(0);
   const isPetHoveredRef = useRef(false);
   const isInputFocusedRef = useRef(false);
@@ -369,19 +113,33 @@ export default function App() {
   const ccTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyDim = useCallback(() => {
-    // 浠绘剰浜や簰鏃舵仮澶嶆甯革細鎮仠浜戞湹銆佹偓鍋滆緭鍏ユ銆佽緭鍏ユ鑱氱劍銆佸緟鍔炵獥鍙ｆ墦寮€銆佽缃獥鍙ｆ墦寮€
+    // 任意交互时恢复正常：悬停云朵、悬停输入框、输入框聚焦、待办窗口打开、设置窗口打开
     const isActive = isPetHoveredRef.current
       || isInputHoveredRef.current
       || isInputFocusedRef.current
-      || todoVisible
-      || settingsVisible;
+      || winOrch.todoVisibleRef.current
+      || winOrch.settingsVisibleRef.current;
     setDisturbMode(isActive ? 0 : disturbModeRef.current);
   }, []);
 
-  // 娉ㄥ唽鍒版ā鍧楃骇鍥炶皟锛屼緵 show/hideTodoWindow 绛夊嚱鏁拌皟鐢?
+  // 将 applyDim 同步到 hook 的 onInteractionChangeRef
   useEffect(() => {
-    onInteractionChange = applyDim;
-    return () => { onInteractionChange = null; };
+    winOrch.onInteractionChangeRef.current = applyDim;
+  }, [applyDim, winOrch.onInteractionChangeRef]);
+
+  // 低干扰：窗口失焦时重置 hover refs（hook 的 onFocusChanged 只调用 onInteractionChange）
+  useEffect(() => {
+    const mainWin = getCurrentWindow();
+    let unlisten: (() => void) | null = null;
+    mainWin.onFocusChanged(({ payload: focused }) => {
+      if (!focused) {
+        isPetHoveredRef.current = false;
+        isInputHoveredRef.current = false;
+        isInputFocusedRef.current = false;
+        applyDim();
+      }
+    }).then(u => { unlisten = u; });
+    return () => { unlisten?.(); };
   }, [applyDim]);
 
   useEffect(() => {
@@ -393,7 +151,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, [applyDim]);
 
-  // 浣庡共鎵版ā寮忎笅锛氬惎鐢ㄧ偣鍑荤┛閫?+ 杞鍏夋爣浣嶇疆锛屾偓鍋?2s 鍚庢樉褰?
+  // 低干扰模式下：启用点击穿透 + 轮询光标位置，悬停 1s 后显形
   useEffect(() => {
     const stopPoll = () => {
       if (disturbPollRef.current) { clearInterval(disturbPollRef.current); disturbPollRef.current = null; }
@@ -432,15 +190,7 @@ export default function App() {
     return stopPoll;
   }, [disturbMode, applyDim]);
 
-  // 组件卸载时取消主窗口事件监听
-  useEffect(() => {
-    return () => {
-      unlistenMoveRef.current?.();
-      unlistenFocusRef.current?.();
-    };
-  }, []);
-
-  // 鍒濆鍖栵細鏁版嵁搴撱€佸緟鍔炪€佸ぉ姘斻€佹彁閱掓湇鍔?
+  // 初始化：数据库、待办、天气、提醒服务
   useEffect(() => {
     let stopWeather: ReturnType<typeof setInterval>;
     let stopReminder: () => void;
@@ -448,13 +198,13 @@ export default function App() {
     let stopScheduler: () => void;
 
     const init = async () => {
-      // 纭繚涓荤獥鍙ｈ幏寰楃劍鐐癸紝鍚﹀垯閫忔槑绐楀彛鍦?Windows 涓婁笉浼氭敹鍒伴紶鏍囨偓鍋滀簨浠?
+      // 确保主窗口获得焦点，否则透明窗口在 Windows 上不会收到鼠标悬停事件
       await getCurrentWindow().setFocus();
 
       await getDb();
 
 
-      // 鍔犺浇鎻愰啋闂撮殧璁剧疆
+      // 加载提醒间隔设置
       const savedInterval = await getSetting('reminder_interval_min');
       reminderIntervalRef.current = savedInterval ? parseInt(savedInterval) : 60;
 
@@ -473,7 +223,7 @@ export default function App() {
         () => reminderIntervalRef.current
       );
 
-      // 鏃堕棿鑱斿姩锛氭寜鏃舵鍒囨崲琛ㄦ儏鍜屾皵娉?
+      // 时间联动：按时段切换表情和气泡
       stopTimeCycle = startTimeCycleService((period) => {
         setExpression(period.expression);
         if (period.greeting) showSpeech(period.greeting, 6000);
@@ -486,14 +236,14 @@ export default function App() {
         setTimeout(() => setExpression('default'), 3000);
       });
 
-      // 璁剧疆淇濆瓨鍚庨噸缃?AI 瀹㈡埛绔紦瀛樺苟鏇存柊鎻愰啋闂撮殧
+      // 设置保存后重置 AI 客户端缓存并更新提醒间隔
       await listen('settings-changed', async () => {
         resetClient();
         const interval = await getSetting('reminder_interval_min');
         reminderIntervalRef.current = interval ? parseInt(interval) : 60;
       });
 
-      // 鎵€鏈夊緟鍔炲畬鎴愭椂瑙﹀彂 proudly
+      // 所有待办完成时触发 proudly
       await listen('all-todos-complete', () => {
         setExpression('proudly');
         setTimeout(() => setExpression('default'), 3000);
@@ -502,11 +252,11 @@ export default function App() {
       await listen<{ phase: string; remainSecs: number }>('focus-phase-change', ({ payload }) => {
         const next = payload.phase as 'focus' | 'rest';
         if (next === 'rest') {
-          showSpeech('涓撴敞缁撴潫锛佷紤鎭竴涓嬪惂 馃帀', 5000);
+          showSpeech('专注结束！休息一下吧 🎉', 5000);
           setExpression('happy');
           setTimeout(() => setExpression('default'), 2000);
         } else {
-          showSpeech('浼戞伅缁撴潫锛岀户缁笓娉紒鍔犳补 馃挭', 4000);
+          showSpeech('休息结束，继续专注！加油 💪', 4000);
         }
         setFocusClock(prev => prev
           ? { ...prev, phase: next, remainSecs: payload.remainSecs, totalSecs: payload.remainSecs, running: false }
@@ -526,10 +276,10 @@ export default function App() {
         setFocusClock(prev => prev ? { ...prev, remainSecs: payload.remainSecs } : null);
       });
       await listen('focus-mouse-enter', () => {
-        if (focusHideTimer) clearTimeout(focusHideTimer);
+        if (winOrch.focusHideTimerRef.current) clearTimeout(winOrch.focusHideTimerRef.current);
       });
       await listen('focus-mouse-leave', () => {
-        focusHideTimer = setTimeout(hideFocusWindow, 500);
+        winOrch.focusHideTimerRef.current = setTimeout(winOrch.hideFocusWindow, 500);
       });
 
       // CC 事件感知：低干扰模式下临时显形；阶段性节点弹气泡提示
@@ -617,182 +367,57 @@ export default function App() {
     setIsProcessing(false);
   }, []);
 
-  // 鍒濆鍖栵細瀹氫綅瀛愮獥鍙ｄ綅缃紝鐩戝惉涓荤獥鍙ｇЩ鍔ㄥ悓姝ヤ綅缃苟鏇存柊杈圭晫缂撳瓨
-  useEffect(() => {
-    const initWindows = async () => {
-      const mainWin = getCurrentWindow();
-      const mainPos = await mainWin.outerPosition();
-      const mainSize = await mainWin.outerSize();
-      const sf = await mainWin.scaleFactor();
-      const todoWidth = 306, gap = 8;
-
-      const todoWin = await WebviewWindow.getByLabel('todo-manager');
-      if (todoWin) {
-        await todoWin.setPosition(
-          new LogicalPosition(mainPos.x / sf - todoWidth - gap, mainPos.y / sf)
-        );
-      }
-
-      const unlisten = await mainWin.onMoved(async ({ payload: physPos }) => {
-        // 瀛愮獥鍙ｅ疄鏃惰窡闅?
-        const tw = await WebviewWindow.getByLabel('todo-manager');
-        if (tw) {
-          await tw.setPosition(
-            new LogicalPosition(physPos.x / sf - todoWidth - gap, physPos.y / sf)
-          );
-          if (todoVisible) {
-            const pos = await tw.outerPosition();
-            const size = await tw.outerSize();
-            todoBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
-          }
-        }
-        const sw = await WebviewWindow.getByLabel('settings');
-        if (sw) {
-          await sw.setPosition(
-            new LogicalPosition(physPos.x / sf + mainSize.width / sf + gap, physPos.y / sf)
-          );
-          if (settingsVisible) {
-            const pos = await sw.outerPosition();
-            const size = await sw.outerSize();
-            settingsBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
-          }
-        }
-        const bw = await WebviewWindow.getByLabel('speech-bubble');
-        if (bw) {
-          await bw.setPosition(new LogicalPosition(
-            physPos.x / sf,
-            physPos.y / sf + CLOUD_TOP_OFFSET - BUBBLE_WIN_H,
-          ));
-        }
-        const scw = await WebviewWindow.getByLabel('scheduler');
-        if (scw) {
-          await scw.setPosition(
-            new LogicalPosition(physPos.x / sf - todoWidth - gap, physPos.y / sf)
-          );
-          if (schedulerVisible) {
-            const pos = await scw.outerPosition();
-            const size = await scw.outerSize();
-            schedulerBounds = { x: pos.x, y: pos.y, w: size.width, h: size.height };
-          }
-        }
-      });
-      unlistenMoveRef.current = unlisten;
-
-      // 窗口失焦（最小化 / 其他窗口获焦）→ 重置悬停 ref，防止低干扰模式被卡住
-      // 用 Tauri 原生事件，比 window.blur 在 WebView2 里更可靠
-      const unlistenFocus = await mainWin.onFocusChanged(({ payload: focused }) => {
-        if (!focused) {
-          isPetHoveredRef.current = false;
-          isInputHoveredRef.current = false;
-          isInputFocusedRef.current = false;
-          applyDim();
-        }
-      });
-      unlistenFocusRef.current = unlistenFocus;
-    };
-
-    initWindows();
-  }, [applyDim]);
-
-  const handleTodoBtnEnter = () => {
-    // 互斥：取消 scheduler 的显示计时，并隐藏 scheduler
-    if (schedulerShowTimer) { clearTimeout(schedulerShowTimer); schedulerShowTimer = null; }
-    if (schedulerHideTimer) { clearTimeout(schedulerHideTimer); schedulerHideTimer = null; }
-    hideSchedulerWindow();
-    if (todoHideTimer) clearTimeout(todoHideTimer);
-    todoShowTimer = setTimeout(showTodoWindow, 200);
-  };
-
-  const handleTodoBtnLeave = () => {
-    if (todoShowTimer) clearTimeout(todoShowTimer);
-    todoHideTimer = setTimeout(hideTodoWindow, 500);
-  };
-
-  const handleFocusBtnEnter = () => {
-    if (focusHideTimer) clearTimeout(focusHideTimer);
-    focusShowTimer = setTimeout(showFocusWindow, 200);
-  };
-
-  const handleFocusBtnLeave = () => {
-    if (focusShowTimer) clearTimeout(focusShowTimer);
-    focusHideTimer = setTimeout(hideFocusWindow, 500);
-  };
-
-  const handleSettingsBtnEnter = () => {
-    if (settingsHideTimer) clearTimeout(settingsHideTimer);
-    settingsShowTimer = setTimeout(showSettingsWindow, 200);
-  };
-
-  const handleSettingsBtnLeave = () => {
-    if (settingsShowTimer) clearTimeout(settingsShowTimer);
-    settingsHideTimer = setTimeout(hideSettingsWindow, 500);
-  };
-
-  const handleSchedulerBtnEnter = () => {
-    // 互斥：取消 todo 的显示计时，并隐藏 todo
-    if (todoShowTimer) { clearTimeout(todoShowTimer); todoShowTimer = null; }
-    if (todoHideTimer) { clearTimeout(todoHideTimer); todoHideTimer = null; }
-    hideTodoWindow();
-    if (schedulerHideTimer) clearTimeout(schedulerHideTimer);
-    schedulerShowTimer = setTimeout(showSchedulerWindow, 200);
-  };
-
-  const handleSchedulerBtnLeave = () => {
-    if (schedulerShowTimer) clearTimeout(schedulerShowTimer);
-    schedulerHideTimer = setTimeout(hideSchedulerWindow, 500);
-  };
-
-  // 閲嶇疆绌洪棽璁℃椂鍣紙鐢ㄦ埛鏈変氦浜掓椂璋冪敤锛?
+  // 重置空闲计时器（用户有交互时调用）
   const resetIdle = useCallback(() => {
     if (idleTimer) clearTimeout(idleTimer);
-    // 鑻ュ綋鍓嶆槸 sleepy锛屾仮澶?default
+    // 若当前是 sleepy，恢复 default
     if (useAppStore.getState().expression === 'sleepy') {
       setExpression('default');
     }
     idleTimer = setTimeout(() => setExpression('sleepy'), IDLE_MS);
   }, []);
 
-  // 鍚姩 idle 璁℃椂鍣?
+  // 启动 idle 计时器
   useEffect(() => {
     idleTimer = setTimeout(() => setExpression('sleepy'), IDLE_MS);
     return () => { if (idleTimer) clearTimeout(idleTimer); };
   }, []);
 
-  // 鍚屾 showHoverMenu 鐘舵€佸埌 ref锛屼緵 mousemove 鐩戝惉鍣ㄤ娇鐢?
+  // 同步 showHoverMenu 状态到 ref，供 mousemove 监听器使用
   useEffect(() => {
     showHoverMenuRef.current = showHoverMenu;
   }, [showHoverMenu]);
 
-  // 鍚屾 showInputBar 鐘舵€佸埌 ref锛屼緵 mousemove 鐩戝惉鍣ㄤ娇鐢?
+  // 同步 showInputBar 状态到 ref，供 mousemove 监听器使用
   useEffect(() => {
     showInputBarRef.current = showInputBar;
   }, [showInputBar]);
 
-  // 鍏滃簳锛歞ocument mousemove 妫€娴嬮紶鏍囨槸鍚︾湡姝ｇ寮€ pet-area / input-bar
-  // 闃叉 Tauri 閫忔槑绐楀彛鍋跺彂鎬т涪澶?onMouseLeave 浜嬩欢
+  // 兜底：document mousemove 检测鼠标是否真正离开 pet-area / input-bar
+  // 防止 Tauri 透明窗口偶发性丢失 onMouseLeave 事件
   useEffect(() => {
     const checkBounds = (e: MouseEvent) => {
-      // HoverMenu 鍏滃簳
+      // HoverMenu 兜底
       if (showHoverMenuRef.current && petAreaRef.current) {
         const rect = petAreaRef.current.getBoundingClientRect();
         const inside = e.clientX >= rect.left && e.clientX <= rect.right
                     && e.clientY >= rect.top  && e.clientY <= rect.bottom;
         if (!inside) {
-          if (hoverTimer) clearTimeout(hoverTimer);
-          hoverTimer = null;
+          if (winOrch.hoverTimerRef.current) clearTimeout(winOrch.hoverTimerRef.current);
+          winOrch.hoverTimerRef.current = null;
           setShowHoverMenu(false);
           isPetHoveredRef.current = false;
           applyDim();
         }
       }
-      // InputBar 鍏滃簳
+      // InputBar 兜底
       if (showInputBarRef.current && inputBarRef.current) {
         const rect = inputBarRef.current.getBoundingClientRect();
         const inside = e.clientX >= rect.left && e.clientX <= rect.right
                     && e.clientY >= rect.top  && e.clientY <= rect.bottom;
         if (!inside) {
-          if (inputBarTimer) clearTimeout(inputBarTimer);
-          inputBarTimer = null;
+          if (winOrch.inputBarTimerRef.current) clearTimeout(winOrch.inputBarTimerRef.current);
+          winOrch.inputBarTimerRef.current = null;
           setShowInputBar(false);
           isInputHoveredRef.current = false;
           applyDim();
@@ -847,44 +472,32 @@ export default function App() {
   }, [applyDim]);
 
   const handleInputBarEnter = () => {
-    if (inputBarTimer) clearTimeout(inputBarTimer);
+    if (winOrch.inputBarTimerRef.current) clearTimeout(winOrch.inputBarTimerRef.current);
     isInputHoveredRef.current = true;
     applyDim();
     setShowInputBar(true);
   };
 
   const handleInputBarLeave = () => {
-    if (inputBarTimer) clearTimeout(inputBarTimer);
-    inputBarTimer = setTimeout(() => {
+    if (winOrch.inputBarTimerRef.current) clearTimeout(winOrch.inputBarTimerRef.current);
+    winOrch.inputBarTimerRef.current = setTimeout(() => {
       isInputHoveredRef.current = false;
       applyDim();
       setShowInputBar(false);
     }, 50);
   };
 
-  // 榧犳爣杩涘叆浜戞湹鍖哄煙锛氱淮鎶や綆骞叉壈鐘舵€?
+  // 鼠标进入云朵区域：维护低干扰状态
   const handlePetAreaEnter = () => {
     isPetHoveredRef.current = true;
     applyDim();
     resetIdle();
   };
 
-  // 榧犳爣绂诲紑浜戞湹鍖哄煙
+  // 鼠标离开云朵区域
   const handlePetAreaLeave = () => {
     isPetHoveredRef.current = false;
     applyDim();
-  };
-
-  // 榧犳爣杩涘叆鑿滃崟瑙﹀彂鍖烘垨鑿滃崟鏈韩锛氭樉绀鸿彍鍗?
-  const handleMenuZoneEnter = () => {
-    if (hoverTimer) clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(() => setShowHoverMenu(true), 200);
-  };
-
-  // 榧犳爣绂诲紑鑿滃崟瑙﹀彂鍖烘垨鑿滃崟鏈韩锛氶殣钘忚彍鍗?
-  const handleMenuZoneLeave = () => {
-    if (hoverTimer) clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(() => setShowHoverMenu(false), 50);
   };
 
   return (
@@ -897,32 +510,32 @@ export default function App() {
       transition: 'opacity 0.4s ease',
       pointerEvents: (disturbMode === 2 && !ccActive) ? 'none' : 'auto',
     }}>
-      {/* 浜戞湹 + 鑿滃崟瀹瑰櫒 */}
+      {/* 云朵 + 菜单容器 */}
       <div
         ref={petAreaRef}
         className="pet-area"
         onMouseEnter={handlePetAreaEnter}
         onMouseLeave={handlePetAreaLeave}
       >
-        {/* 鑿滃崟瑙﹀彂鍖猴細鎮仠鍦ㄦ澶勬墠鏄剧ず鑿滃崟 */}
+        {/* 菜单触发区：悬停在此处才显示菜单 */}
         <div
           className="menu-trigger"
-          onMouseEnter={handleMenuZoneEnter}
-          onMouseLeave={handleMenuZoneLeave}
+          onMouseEnter={winOrch.handleMenuZoneEnter}
+          onMouseLeave={winOrch.handleMenuZoneLeave}
         />
 
         <HoverMenu
           visible={showHoverMenu}
-          onTodoBtnEnter={handleTodoBtnEnter}
-          onTodoBtnLeave={handleTodoBtnLeave}
-          onFocusBtnEnter={handleFocusBtnEnter}
-          onFocusBtnLeave={handleFocusBtnLeave}
-          onSettingsBtnEnter={handleSettingsBtnEnter}
-          onSettingsBtnLeave={handleSettingsBtnLeave}
-          onSchedulerBtnEnter={handleSchedulerBtnEnter}
-          onSchedulerBtnLeave={handleSchedulerBtnLeave}
-          onMenuEnter={handleMenuZoneEnter}
-          onMenuLeave={handleMenuZoneLeave}
+          onTodoBtnEnter={winOrch.handleTodoBtnEnter}
+          onTodoBtnLeave={winOrch.handleTodoBtnLeave}
+          onFocusBtnEnter={winOrch.handleFocusBtnEnter}
+          onFocusBtnLeave={winOrch.handleFocusBtnLeave}
+          onSettingsBtnEnter={winOrch.handleSettingsBtnEnter}
+          onSettingsBtnLeave={winOrch.handleSettingsBtnLeave}
+          onSchedulerBtnEnter={winOrch.handleSchedulerBtnEnter}
+          onSchedulerBtnLeave={winOrch.handleSchedulerBtnLeave}
+          onMenuEnter={winOrch.handleMenuZoneEnter}
+          onMenuLeave={winOrch.handleMenuZoneLeave}
         />
 
         <div className="cloud-pet-bubble-anchor">
@@ -949,4 +562,3 @@ export default function App() {
     </div>
   );
 }
-
