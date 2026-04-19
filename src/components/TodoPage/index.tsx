@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { emit } from '@tauri-apps/api/event';
+import { typedEmitTo } from '../../events';
 import {
   getDb,
   fetchTodos,
@@ -188,7 +188,7 @@ export default function TodoPage() {
     await updateTodoCompletion(id, newCompleted);
     // 所有待办都完成时通知主窗口
     if (updated.length > 0 && updated.every((t) => t.is_completed)) {
-      emit('all-todos-complete');
+      typedEmitTo('main', 'all-todos-complete', {} as Record<string, never>);
     }
   }, [todos]);
 
@@ -209,8 +209,8 @@ export default function TodoPage() {
   return (
     <div
       className="tp-root"
-      onMouseEnter={() => emit('todo-mouse-enter')}
-      onMouseLeave={() => emit('todo-mouse-leave')}
+      onMouseEnter={() => typedEmitTo('main', 'todo-mouse-enter', {} as Record<string, never>)}
+      onMouseLeave={() => typedEmitTo('main', 'todo-mouse-leave', {} as Record<string, never>)}
     >
       {/* 标题栏（可拖拽） */}
       <div className="tp-titlebar">
