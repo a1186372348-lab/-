@@ -1,8 +1,14 @@
 import { useEffect, useRef } from 'react';
+import { listen, emit } from '@tauri-apps/api/event';
 import { startWeatherSync } from '../services/weather';
 import { startTimeCycleService } from '../services/timeCycle';
 import type { TimePeriod } from '../services/timeCycle';
 import { startColorSampler, stopColorSampler } from '../services/colorSampler';
+import { startReminderService } from '../services/reminder';
+import { startSchedulerService } from '../services/scheduler';
+import { startScreenMonitor, stopScreenMonitor } from '../services/screenMonitor';
+import { resetClient } from '../services/ai';
+import { getDb, getSetting } from '../services/db';
 
 // ── Callbacks 契约 ─────────────────────────────────────────
 export interface AppRuntimeCallbacks {
@@ -94,11 +100,87 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
     };
   }, []);
 
-  // 尚未使用的 refs（US-011 ~ US-013 将填充）
-  void reminderStopRef;
-  void schedulerStopRef;
-  void screenMonitorActiveRef;
-  void unlistenRefs;
+  // ── US-011: 条件运行时服务（reminder + scheduler + screenMonitor + settings-changed） ──
+  useEffect(() => {
+    let mounted = true;
+
+    const initConditional = async () => {
+      await getDb();
+
+      // 加载提醒间隔设置
+      const savedInterval = await getSetting('reminder_interval_min');
+      if (!mounted) return;
+      callbacksRef.current.setReminderInterval(savedInterval ? parseInt(savedInterval) : 60);
+
+      // 提醒服务
+      reminderStopRef.current = startReminderService(
+        (todo) => {
+          callbacksRef.current.setExpression('worried');
+          callbacksRef.current.playThunder();
+          callbacksRef.current.showSpeech(`"${todo.title}" is still pending.`, 7000);
+          setTimeout(() => callbacksRef.current.setExpression('default'), 3000);
+        },
+        () => callbacksRef.current.getReminderInterval()
+      );
+
+      // 定时任务服务
+      schedulerStopRef.current = startSchedulerService((task) => {
+        callbacksRef.current.setExpression('happy');
+        callbacksRef.current.showSpeech(`⏰ 提醒：${task.title}`, 7000);
+        setTimeout(() => callbacksRef.current.setExpression('default'), 3000);
+      });
+
+      // 设置保存后重置 AI 客户端缓存并更新提醒间隔
+      const unlistenSettings = await listen('settings-changed', async () => {
+        resetClient();
+        const newInterval = await getSetting('reminder_interval_min');
+        callbacksRef.current.setReminderInterval(newInterval ? parseInt(newInterval) : 60);
+      });
+      if (!mounted) {
+        unlistenSettings();
+        return;
+      }
+      unlistenRefs.current.push(unlistenSettings);
+    };
+
+    initConditional();
+
+    // 屏幕感知服务（同步启动）
+    startScreenMonitor({
+      getDisturbMode: () => callbacksRef.current.getDisturbMode(),
+      isUserTyping: () => callbacksRef.current.isUserTyping(),
+      onSpeak: (text) => {
+        callbacksRef.current.showSpeech(text, 0);
+        callbacksRef.current.setExpression('happy');
+      },
+      onChunk: (delta) => {
+        emit('speech:append', { delta });
+      },
+      onDone: () => {
+        emit('speech:done', { duration: 5000 });
+        setTimeout(() => callbacksRef.current.setExpression('default'), 2000);
+      },
+    });
+    screenMonitorActiveRef.current = true;
+
+    return () => {
+      mounted = false;
+      if (reminderStopRef.current) {
+        reminderStopRef.current();
+        reminderStopRef.current = null;
+      }
+      if (schedulerStopRef.current) {
+        schedulerStopRef.current();
+        schedulerStopRef.current = null;
+      }
+      stopScreenMonitor();
+      screenMonitorActiveRef.current = false;
+      unlistenRefs.current.forEach(fn => fn());
+      unlistenRefs.current = [];
+    };
+  }, []);
+
+  // 尚未使用的 refs（US-012 ~ US-013 将填充）
   void ccPermissionPendingRef;
   void ccTimerRef;
 }
