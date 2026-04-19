@@ -10,6 +10,14 @@ import { startScreenMonitor, stopScreenMonitor } from '../services/screenMonitor
 import { resetClient } from '../services/ai';
 import { getDb, getSetting } from '../services/db';
 
+// ── 类型 ──────────────────────────────────────────────────
+export type FocusClockState = {
+  running: boolean;
+  phase: 'focus' | 'rest';
+  remainSecs: number;
+  totalSecs: number;
+};
+
 // ── Callbacks 契约 ─────────────────────────────────────────
 export interface AppRuntimeCallbacks {
   /** 天气变化：更新天气状态 + 关联表情 */
@@ -26,13 +34,8 @@ export interface AppRuntimeCallbacks {
   getReminderInterval: () => number;
   /** 设置提醒间隔 */
   setReminderInterval: (min: number) => void;
-  /** 设置专注时钟状态 */
-  setFocusClock: (state: {
-    running: boolean;
-    phase: 'focus' | 'rest';
-    remainSecs: number;
-    totalSecs: number;
-  } | null) => void;
+  /** 设置专注时钟状态（支持直接赋值或函数式更新） */
+  setFocusClock: (stateOrUpdater: FocusClockState | null | ((prev: FocusClockState | null) => FocusClockState | null)) => void;
   /** 设置 CC 工作感知状态 */
   setCcActive: (active: boolean) => void;
   /** 设置 AI 处理中状态 */
@@ -180,7 +183,129 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
     };
   }, []);
 
-  // 尚未使用的 refs（US-012 ~ US-013 将填充）
-  void ccPermissionPendingRef;
-  void ccTimerRef;
+  // ── US-012: 事件桥接（todo/focus/cc 事件） ──
+  useEffect(() => {
+    let mounted = true;
+    const cleanups: Array<() => void> = [];
+
+    const registerListeners = async () => {
+      // all-todos-complete
+      const un1 = await listen('all-todos-complete', () => {
+        callbacksRef.current.setExpression('proudly');
+        setTimeout(() => callbacksRef.current.setExpression('default'), 3000);
+      });
+      if (!mounted) { un1(); return; }
+      cleanups.push(un1);
+
+      // focus-phase-change
+      const un2 = await listen<{ phase: string; remainSecs: number }>('focus-phase-change', ({ payload }) => {
+        const next = payload.phase as 'focus' | 'rest';
+        if (next === 'rest') {
+          callbacksRef.current.showSpeech('专注结束！休息一下吧 🎉', 5000);
+          callbacksRef.current.setExpression('happy');
+          setTimeout(() => callbacksRef.current.setExpression('default'), 2000);
+        } else {
+          callbacksRef.current.showSpeech('休息结束，继续专注！加油 💪', 4000);
+        }
+        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+          prev ? { ...prev, phase: next, remainSecs: payload.remainSecs, totalSecs: payload.remainSecs, running: false } : null
+        );
+      });
+      if (!mounted) { un2(); return; }
+      cleanups.push(un2);
+
+      // focus-start
+      const un3 = await listen<{ phase: string; remainSecs: number; task?: string }>('focus-start', ({ payload }) => {
+        callbacksRef.current.setFocusClock({
+          running: true,
+          phase: payload.phase as 'focus' | 'rest',
+          remainSecs: payload.remainSecs,
+          totalSecs: payload.remainSecs,
+        });
+      });
+      if (!mounted) { un3(); return; }
+      cleanups.push(un3);
+
+      // focus-pause
+      const un4 = await listen<{ phase: string; remainSecs: number }>('focus-pause', ({ payload }) => {
+        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+          prev ? { ...prev, running: false, remainSecs: payload.remainSecs } : null
+        );
+      });
+      if (!mounted) { un4(); return; }
+      cleanups.push(un4);
+
+      // focus-reset
+      const un5 = await listen('focus-reset', () => {
+        callbacksRef.current.setFocusClock(null);
+      });
+      if (!mounted) { un5(); return; }
+      cleanups.push(un5);
+
+      // focus-tick
+      const un6 = await listen<{ phase: string; remainSecs: number }>('focus-tick', ({ payload }) => {
+        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+          prev ? { ...prev, remainSecs: payload.remainSecs } : null
+        );
+      });
+      if (!mounted) { un6(); return; }
+      cleanups.push(un6);
+
+      // focus-mouse-enter
+      const un7 = await listen('focus-mouse-enter', () => {
+        if (callbacksRef.current.focusHideTimerRef.current) {
+          clearTimeout(callbacksRef.current.focusHideTimerRef.current);
+        }
+      });
+      if (!mounted) { un7(); return; }
+      cleanups.push(un7);
+
+      // focus-mouse-leave
+      const un8 = await listen('focus-mouse-leave', () => {
+        callbacksRef.current.focusHideTimerRef.current = setTimeout(callbacksRef.current.hideFocusWindow, 500);
+      });
+      if (!mounted) { un8(); return; }
+      cleanups.push(un8);
+
+      // cc-event
+      const un9 = await listen<{ event: string; tool: string }>('cc-event', ({ payload }) => {
+        if (ccTimerRef.current) {
+          clearTimeout(ccTimerRef.current);
+          ccTimerRef.current = null;
+        }
+        callbacksRef.current.setCcActive(true);
+
+        if (payload.event === 'PermissionRequest') {
+          ccPermissionPendingRef.current = true;
+          callbacksRef.current.setExpression('worried');
+          callbacksRef.current.showSpeech('主人，CC 需要你的指示~', 0);
+        } else if (payload.event === 'Stop') {
+          ccPermissionPendingRef.current = false;
+          callbacksRef.current.setExpression('proudly');
+          callbacksRef.current.showSpeech('主人，任务完成了！', 0);
+          ccTimerRef.current = setTimeout(() => {
+            callbacksRef.current.setExpression('default');
+            callbacksRef.current.setCcActive(false);
+            emit('speech:done', { duration: 300 });
+            ccTimerRef.current = null;
+          }, 3000);
+        } else {
+          if (ccPermissionPendingRef.current) {
+            ccPermissionPendingRef.current = false;
+            callbacksRef.current.setExpression('default');
+            emit('speech:done', { duration: 300 });
+          }
+        }
+      });
+      if (!mounted) { un9(); return; }
+      cleanups.push(un9);
+    };
+
+    registerListeners();
+
+    return () => {
+      mounted = false;
+      cleanups.forEach(fn => fn());
+    };
+  }, []);
 }
