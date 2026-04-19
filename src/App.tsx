@@ -1,3 +1,56 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║                  App.tsx 职责冻结清单                            ║
+ * ║  目标：将 App.tsx 收敛为薄协调层，禁止继续堆积业务逻辑          ║
+ * ╠══════════════════════════════════════════════════════════════════╣
+ * ║                                                                  ║
+ * ║ 【薄协调层保留职责】（最终目标 ≤150 行）                         ║
+ * ║  - 页面组装：CloudPet / InputBar / HoverMenu 的 JSX 渲染        ║
+ * ║  - 用户交互入口：handleSend（AI 对话发送）                       ║
+ * ║  - AI 表现协调：根据事件设置 expression / speech                 ║
+ * ║  - 本地 UI state：showHoverMenu, showInputBar, focusClock,       ║
+ * ║    isPassthrough, ccActive, disturbMode（展示层状态）             ║
+ * ║  - 展示层常量：thunderSound                                      ║
+ * ║                                                                  ║
+ * ║ 【迁往 useWindowOrchestration】                                  ║
+ * ║  - 子窗口 show/hide：showTodoWindow, hideTodoWindow,             ║
+ * ║    showSettingsWindow, hideSettingsWindow, showFocusWindow,       ║
+ * ║    hideFocusWindow, showSchedulerWindow, hideSchedulerWindow      ║
+ * ║  - 光标轮询：startCursorPoll, stopCursorPoll, cursorPollTimer    ║
+ * ║  - 子窗口可见性跟踪：todoVisible, settingsVisible,               ║
+ * ║    focusVisible, schedulerVisible                                 ║
+ * ║  - 子窗口边界缓存：todoBounds, settingsBounds,                   ║
+ * ║    focusBounds, schedulerBounds                                   ║
+ * ║  - 气泡窗口：showSpeech, bubbleReadyRef,                         ║
+ * ║    CLOUD_TOP_OFFSET, BUBBLE_WIN_H                                 ║
+ * ║  - Hover 计时器与 handlers：hoverTimer, inputBarTimer,            ║
+ * ║    todoShowTimer/HideTimer, settingsShowTimer/HideTimer,          ║
+ * ║    focusShowTimer/HideTimer, schedulerShowTimer/HideTimer,        ║
+ * ║    handleTodoBtnEnter/Leave, handleFocusBtnEnter/Leave,           ║
+ * ║    handleSettingsBtnEnter/Leave, handleSchedulerBtnEnter/Leave,   ║
+ * ║    handleMenuZoneEnter/Leave                                      ║
+ * ║  - 低干扰模式：disturbModeRef, applyDim, disturbPollRef,         ║
+ * ║    disturbHoverStartRef, 全屏轮询 useEffect                      ║
+ * ║  - Ctrl 穿透：keydown/keyup/blur 键盘监听                       ║
+ * ║  - 宠物/输入栏交互：handlePetAreaEnter/Leave,                    ║
+ * ║    handleInputBarEnter/Leave, handleInputFocus/Blur,              ║
+ * ║    isPetHoveredRef, isInputHoveredRef, isInputFocusedRef          ║
+ * ║  - 窗口初始化与联动：initWindows, onMoved, onFocusChanged        ║
+ * ║  - Mousemove 兜底：document mousemove bounds check               ║
+ * ║  - 交互回调 ref：onInteractionChange                             ║
+ * ║                                                                  ║
+ * ║ 【迁往 useAppRuntime】                                           ║
+ * ║  - 常驻服务生命周期：startWeatherSync, startReminderService,      ║
+ * ║    startTimeCycleService, startSchedulerService,                  ║
+ * ║    startColorSampler, startScreenMonitor                          ║
+ * ║  - 事件桥接：settings-changed, all-todos-complete,               ║
+ * ║    focus-phase-change, focus-start, focus-pause, focus-reset,     ║
+ * ║    focus-tick, focus-mouse-enter, focus-mouse-leave, cc-event     ║
+ * ║  - 空闲计时：idleTimer, IDLE_MS, resetIdle                       ║
+ * ║                                                                  ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ */
+
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Howl } from 'howler';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
