@@ -39,7 +39,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -58,7 +58,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "",
       "retryCount": 0,
       "blocked": false
@@ -79,7 +79,7 @@
       ],
       "priority": 4,
       "passes": false,
-      "notes": "",
+      "notes": "L1 hooks 恢复后 US-004 需要重做。目标文件现在是 src/hooks/useAppRuntime.ts（不是 App.tsx）。",
       "retryCount": 0,
       "blocked": false
     },
