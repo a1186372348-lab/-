@@ -1,4 +1,8 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import { startWeatherSync } from '../services/weather';
+import { startTimeCycleService } from '../services/timeCycle';
+import type { TimePeriod } from '../services/timeCycle';
+import { startColorSampler, stopColorSampler } from '../services/colorSampler';
 
 // ── Callbacks 契约 ─────────────────────────────────────────
 export interface AppRuntimeCallbacks {
@@ -39,8 +43,9 @@ export interface AppRuntimeCallbacks {
 
 // ── Hook ──────────────────────────────────────────────────
 export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
-  // 占位：callbacks 和 refs 将在后续 stories（US-010 ~ US-013）中填充使用
-  void callbacks;
+  // Ref-synced callbacks：保证 useEffect 闭包中始终读取最新回调
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
 
   // 服务清理函数 refs
   const weatherStopRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -48,21 +53,52 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
   const timeCycleStopRef = useRef<(() => void) | null>(null);
   const schedulerStopRef = useRef<(() => void) | null>(null);
   const screenMonitorActiveRef = useRef(false);
-  void weatherStopRef;
-  void reminderStopRef;
-  void timeCycleStopRef;
-  void schedulerStopRef;
-  void screenMonitorActiveRef;
 
   // 事件监听清理函数 refs
   const unlistenRefs = useRef<Array<() => void>>([]);
-  void unlistenRefs;
 
   // CC 事件内部状态：权限等待标记
   const ccPermissionPendingRef = useRef(false);
-  void ccPermissionPendingRef;
 
   // CC 自动关闭计时器 ref
   const ccTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── US-010: 常驻运行时服务（weather + timeCycle + colorSampler） ──
+  useEffect(() => {
+    // 天气同步
+    weatherStopRef.current = startWeatherSync((condition) => {
+      callbacksRef.current.onWeather(condition);
+    });
+
+    // 时间联动：按时段切换表情和气泡
+    timeCycleStopRef.current = startTimeCycleService((period: TimePeriod) => {
+      callbacksRef.current.setExpression(period.expression);
+      if (period.greeting) {
+        callbacksRef.current.showSpeech(period.greeting, 6000);
+      }
+    });
+
+    // 背景色采样
+    startColorSampler();
+
+    return () => {
+      if (weatherStopRef.current !== null) {
+        clearInterval(weatherStopRef.current);
+        weatherStopRef.current = null;
+      }
+      if (timeCycleStopRef.current) {
+        timeCycleStopRef.current();
+        timeCycleStopRef.current = null;
+      }
+      stopColorSampler();
+    };
+  }, []);
+
+  // 尚未使用的 refs（US-011 ~ US-013 将填充）
+  void reminderStopRef;
+  void schedulerStopRef;
+  void screenMonitorActiveRef;
+  void unlistenRefs;
+  void ccPermissionPendingRef;
   void ccTimerRef;
 }
