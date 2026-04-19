@@ -10,7 +10,7 @@
 
 import { useCallback, useState } from 'react';
 import { Howl } from 'howler';
-import { emit } from '@tauri-apps/api/event';
+import { typedEmitTo } from './events';
 import { chatStream } from './services/ai';
 import { useAppStore } from './store';
 import type { WeatherCondition } from './types';
@@ -61,9 +61,9 @@ export default function App() {
     let firstChunk = true;
     await chatStream(text, (delta) => {
       if (firstChunk) { showSpeech(delta, 0); firstChunk = false; setExpression('happy'); }
-      else emit('speech:append', { delta });
+      else typedEmitTo('speech-bubble', 'speech:append', { delta });
     });
-    emit('speech:done', { duration: 5000 });
+    typedEmitTo('speech-bubble', 'speech:done', { duration: 5000 });
     setTimeout(() => setExpression('default'), 2000);
     setIsProcessing(false);
   }, []);
