@@ -150,7 +150,7 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     if (visible) await win.hide();
     todoVisibleRef.current = false;
     todoBoundsRef.current = null;
-    onInteractionChangeRef.current?.();
+    applyDim();
     if (
       !settingsVisibleRef.current &&
       !focusVisibleRef.current &&
@@ -167,7 +167,7 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
     if (visible) await win.hide();
     settingsVisibleRef.current = false;
     settingsBoundsRef.current = null;
-    onInteractionChangeRef.current?.();
+    applyDim();
     if (
       !todoVisibleRef.current &&
       !focusVisibleRef.current &&
@@ -335,7 +335,7 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
       h: size.height,
     };
     todoVisibleRef.current = true;
-    onInteractionChangeRef.current?.();
+    applyDim();
     startCursorPoll();
   }, []);
 
@@ -363,7 +363,7 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
       h: size.height,
     };
     settingsVisibleRef.current = true;
-    onInteractionChangeRef.current?.();
+    applyDim();
     startCursorPoll();
   }, []);
 
@@ -592,7 +592,6 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
           isInputHoveredRef.current = false;
           isInputFocusedRef.current = false;
           applyDim();
-          onInteractionChangeRef.current?.();
         }
       });
       unlistenFocusRef.current = unlistenFocus;

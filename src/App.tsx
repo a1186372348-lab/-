@@ -9,22 +9,17 @@
  * ║  - 用户交互入口：handleSend（AI 对话发送）                       ║
  * ║  - AI 表现协调：根据事件设置 expression / speech                 ║
  * ║  - 本地 UI state：showHoverMenu, showInputBar, focusClock,       ║
- * ║    isPassthrough, ccActive, disturbMode（展示层状态）             ║
+ * ║    ccActive（展示层状态）                                        ║
  * ║  - 展示层常量：thunderSound                                      ║
  * ║                                                                  ║
- * ║ 【已迁往 useWindowOrchestration（US-006）】                      ║
+ * ║ 【已迁往 useWindowOrchestration（US-006 ~ US-008）】             ║
  * ║  ✓ 子窗口 show/hide、光标轮询、子窗口可见性与边界缓存           ║
  * ║  ✓ 气泡窗口 showSpeech、hover 计时器与按钮/菜单 handlers        ║
  * ║  ✓ 窗口初始化与联动（initWindows、onMoved）                     ║
- * ║                                                                  ║
- * ║ 【迁往 useWindowOrchestration（待 US-007/008）】                 ║
- * ║  - 低干扰模式：disturbModeRef, applyDim, disturbPollRef,         ║
- * ║    disturbHoverStartRef, 全屏轮询 useEffect                      ║
- * ║  - Ctrl 穿透：keydown/keyup/blur 键盘监听                       ║
- * ║  - 宠物/输入栏交互：handlePetAreaEnter/Leave,                    ║
- * ║    handleInputBarEnter/Leave, handleInputFocus/Blur,              ║
- * ║    isPetHoveredRef, isInputHoveredRef, isInputFocusedRef          ║
- * ║  - Mousemove 兜底：document mousemove bounds check               ║
+ * ║  ✓ 低干扰模式：disturbMode 计算、全屏轮询、光标悬停显形         ║
+ * ║  ✓ Ctrl 穿透：keydown/keyup/blur 键盘监听                      ║
+ * ║  ✓ 宠物/输入栏交互：enter/leave/focus/blur handlers             ║
+ * ║  ✓ Mousemove 兜底：document mousemove bounds check              ║
  * ║                                                                  ║
  * ║ 【迁往 useAppRuntime】                                           ║
  * ║  - 常驻服务生命周期：startWeatherSync, startReminderService,      ║
@@ -42,7 +37,6 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { Howl } from 'howler';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen, emit } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
 import { resetClient, chatStream } from './services/ai';
 import { startScreenMonitor, stopScreenMonitor } from './services/screenMonitor';
 import { useAppStore } from './store';
@@ -80,115 +74,41 @@ export default function App() {
     setIsProcessing,
   } = useAppStore();
 
-  // ── 窗口编排 hook ───────────────────────────────────────────
-  const winOrch = useWindowOrchestration({ setShowHoverMenu });
-  const { showSpeech } = winOrch;
+  const [showInputBar, setShowInputBar] = useState(false);
+
+  // 重置空闲计时器（用户有交互时调用）
+  const resetIdle = useCallback(() => {
+    if (idleTimer) clearTimeout(idleTimer);
+    if (useAppStore.getState().expression === 'sleepy') {
+      setExpression('default');
+    }
+    idleTimer = setTimeout(() => setExpression('sleepy'), IDLE_MS);
+  }, []);
+
+  // ── 窗口编排 hook（US-008：全量接入低干扰、穿透与交互） ──────
+  const winOrch = useWindowOrchestration({
+    setShowHoverMenu,
+    setShowInputBar,
+    onActivity: resetIdle,
+  });
+  const {
+    showSpeech,
+    displayDisturbMode,
+    isPassthrough,
+  } = winOrch;
 
   const reminderIntervalRef = useRef<number>(60);
 
-  const [isPassthrough, setIsPassthrough] = useState(false);
   const [focusClock, setFocusClock] = useState<{
     running: boolean;
     phase: 'focus' | 'rest';
     remainSecs: number;
     totalSecs: number;
   } | null>(null);
-  const [showInputBar, setShowInputBar] = useState(false);
-  const petAreaRef = useRef<HTMLDivElement>(null);
-  const inputBarRef = useRef<HTMLDivElement>(null);
-  const showHoverMenuRef = useRef(false);
-  const showInputBarRef = useRef(false);
-  const disturbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const disturbHoverStartRef = useRef<number | null>(null);
-
-  // 低干扰模式：0=正常，1=半透（最大化应用），2=隐藏（无边框全屏游戏）
-  const disturbModeRef = useRef<0 | 1 | 2>(0);
-  const isPetHoveredRef = useRef(false);
-  const isInputFocusedRef = useRef(false);
-  const isInputHoveredRef = useRef(false);
-  const [disturbMode, setDisturbMode] = useState<0 | 1 | 2>(0);
 
   // CC 工作感知：CC 有事件时临时显形
   const [ccActive, setCcActive] = useState(false);
   const ccTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const applyDim = useCallback(() => {
-    // 任意交互时恢复正常：悬停云朵、悬停输入框、输入框聚焦、待办窗口打开、设置窗口打开
-    const isActive = isPetHoveredRef.current
-      || isInputHoveredRef.current
-      || isInputFocusedRef.current
-      || winOrch.todoVisibleRef.current
-      || winOrch.settingsVisibleRef.current;
-    setDisturbMode(isActive ? 0 : disturbModeRef.current);
-  }, []);
-
-  // 将 applyDim 同步到 hook 的 onInteractionChangeRef
-  useEffect(() => {
-    winOrch.onInteractionChangeRef.current = applyDim;
-  }, [applyDim, winOrch.onInteractionChangeRef]);
-
-  // 低干扰：窗口失焦时重置 hover refs（hook 的 onFocusChanged 只调用 onInteractionChange）
-  useEffect(() => {
-    const mainWin = getCurrentWindow();
-    let unlisten: (() => void) | null = null;
-    mainWin.onFocusChanged(({ payload: focused }) => {
-      if (!focused) {
-        isPetHoveredRef.current = false;
-        isInputHoveredRef.current = false;
-        isInputFocusedRef.current = false;
-        applyDim();
-      }
-    }).then(u => { unlisten = u; });
-    return () => { unlisten?.(); };
-  }, [applyDim]);
-
-  useEffect(() => {
-    const timer = setInterval(async () => {
-      const mode = await invoke<0 | 1 | 2>('get_fullscreen_mode');
-      disturbModeRef.current = mode;
-      applyDim();
-    }, 500);
-    return () => clearInterval(timer);
-  }, [applyDim]);
-
-  // 低干扰模式下：启用点击穿透 + 轮询光标位置，悬停 1s 后显形
-  useEffect(() => {
-    const stopPoll = () => {
-      if (disturbPollRef.current) { clearInterval(disturbPollRef.current); disturbPollRef.current = null; }
-      disturbHoverStartRef.current = null;
-    };
-
-    if (disturbMode !== 0) {
-      invoke('set_window_passthrough', { passthrough: true }).catch(console.error);
-      if (disturbPollRef.current) return;
-      disturbPollRef.current = setInterval(async () => {
-        const [cx, cy]: [number, number] = await invoke('get_cursor_position');
-        const pos = await getCurrentWindow().outerPosition();
-        const dpr = window.devicePixelRatio || 1;
-        const rect = petAreaRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const inside = cx >= pos.x + rect.left * dpr && cx < pos.x + rect.right * dpr
-                    && cy >= pos.y + rect.top  * dpr && cy < pos.y + rect.bottom * dpr;
-        if (inside) {
-          if (disturbHoverStartRef.current === null) {
-            disturbHoverStartRef.current = Date.now();
-          } else if (Date.now() - disturbHoverStartRef.current >= 1000) {
-            stopPoll();
-            await invoke('set_window_passthrough', { passthrough: false });
-            isPetHoveredRef.current = true;
-            applyDim();
-          }
-        } else {
-          disturbHoverStartRef.current = null;
-        }
-      }, 100);
-    } else {
-      stopPoll();
-      invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
-    }
-
-    return stopPoll;
-  }, [disturbMode, applyDim]);
 
   // 初始化：数据库、待办、天气、提醒服务
   useEffect(() => {
@@ -202,7 +122,6 @@ export default function App() {
       await getCurrentWindow().setFocus();
 
       await getDb();
-
 
       // 加载提醒间隔设置
       const savedInterval = await getSetting('reminder_interval_min');
@@ -263,21 +182,27 @@ export default function App() {
           : null
         );
       });
+
       await listen<{ phase: string; remainSecs: number; task?: string }>('focus-start', ({ payload }) => {
         setFocusClock({ running: true, phase: payload.phase as 'focus' | 'rest', remainSecs: payload.remainSecs, totalSecs: payload.remainSecs });
       });
+
       await listen<{ phase: string; remainSecs: number }>('focus-pause', ({ payload }) => {
         setFocusClock(prev => prev ? { ...prev, running: false, remainSecs: payload.remainSecs } : null);
       });
+
       await listen<{ phase: string }>('focus-reset', () => {
         setFocusClock(null);
       });
+
       await listen<{ phase: string; remainSecs: number }>('focus-tick', ({ payload }) => {
         setFocusClock(prev => prev ? { ...prev, remainSecs: payload.remainSecs } : null);
       });
+
       await listen('focus-mouse-enter', () => {
         if (winOrch.focusHideTimerRef.current) clearTimeout(winOrch.focusHideTimerRef.current);
       });
+
       await listen('focus-mouse-leave', () => {
         winOrch.focusHideTimerRef.current = setTimeout(winOrch.hideFocusWindow, 500);
       });
@@ -318,8 +243,8 @@ export default function App() {
     startColorSampler();
 
     startScreenMonitor({
-      getDisturbMode: () => disturbModeRef.current,
-      isUserTyping: () => isInputFocusedRef.current,
+      getDisturbMode: () => winOrch.disturbModeRef.current,
+      isUserTyping: () => winOrch.isInputFocusedRef.current,
       onSpeak: (text) => {
         showSpeech(text, 0);
         setExpression('happy');
@@ -367,155 +292,28 @@ export default function App() {
     setIsProcessing(false);
   }, []);
 
-  // 重置空闲计时器（用户有交互时调用）
-  const resetIdle = useCallback(() => {
-    if (idleTimer) clearTimeout(idleTimer);
-    // 若当前是 sleepy，恢复 default
-    if (useAppStore.getState().expression === 'sleepy') {
-      setExpression('default');
-    }
-    idleTimer = setTimeout(() => setExpression('sleepy'), IDLE_MS);
-  }, []);
-
   // 启动 idle 计时器
   useEffect(() => {
     idleTimer = setTimeout(() => setExpression('sleepy'), IDLE_MS);
     return () => { if (idleTimer) clearTimeout(idleTimer); };
   }, []);
 
-  // 同步 showHoverMenu 状态到 ref，供 mousemove 监听器使用
-  useEffect(() => {
-    showHoverMenuRef.current = showHoverMenu;
-  }, [showHoverMenu]);
-
-  // 同步 showInputBar 状态到 ref，供 mousemove 监听器使用
-  useEffect(() => {
-    showInputBarRef.current = showInputBar;
-  }, [showInputBar]);
-
-  // 兜底：document mousemove 检测鼠标是否真正离开 pet-area / input-bar
-  // 防止 Tauri 透明窗口偶发性丢失 onMouseLeave 事件
-  useEffect(() => {
-    const checkBounds = (e: MouseEvent) => {
-      // HoverMenu 兜底
-      if (showHoverMenuRef.current && petAreaRef.current) {
-        const rect = petAreaRef.current.getBoundingClientRect();
-        const inside = e.clientX >= rect.left && e.clientX <= rect.right
-                    && e.clientY >= rect.top  && e.clientY <= rect.bottom;
-        if (!inside) {
-          if (winOrch.hoverTimerRef.current) clearTimeout(winOrch.hoverTimerRef.current);
-          winOrch.hoverTimerRef.current = null;
-          setShowHoverMenu(false);
-          isPetHoveredRef.current = false;
-          applyDim();
-        }
-      }
-      // InputBar 兜底
-      if (showInputBarRef.current && inputBarRef.current) {
-        const rect = inputBarRef.current.getBoundingClientRect();
-        const inside = e.clientX >= rect.left && e.clientX <= rect.right
-                    && e.clientY >= rect.top  && e.clientY <= rect.bottom;
-        if (!inside) {
-          if (winOrch.inputBarTimerRef.current) clearTimeout(winOrch.inputBarTimerRef.current);
-          winOrch.inputBarTimerRef.current = null;
-          setShowInputBar(false);
-          isInputHoveredRef.current = false;
-          applyDim();
-        }
-      }
-    };
-    document.addEventListener('mousemove', checkBounds);
-    return () => document.removeEventListener('mousemove', checkBounds);
-  }, [applyDim, setShowHoverMenu]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control' && !isPassthrough) {
-        setIsPassthrough(true);
-        invoke('set_window_passthrough', { passthrough: true }).catch(console.error);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control' && isPassthrough) {
-        setIsPassthrough(false);
-        invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
-      }
-    };
-
-    const handleBlur = () => {
-      if (isPassthrough) {
-        setIsPassthrough(false);
-        invoke('set_window_passthrough', { passthrough: false }).catch(console.error);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, [isPassthrough]);
-
-  const handleInputFocus = useCallback(() => {
-    isInputFocusedRef.current = true;
-    applyDim();
-  }, [applyDim]);
-
-  const handleInputBlur = useCallback(() => {
-    isInputFocusedRef.current = false;
-    applyDim();
-  }, [applyDim]);
-
-  const handleInputBarEnter = () => {
-    if (winOrch.inputBarTimerRef.current) clearTimeout(winOrch.inputBarTimerRef.current);
-    isInputHoveredRef.current = true;
-    applyDim();
-    setShowInputBar(true);
-  };
-
-  const handleInputBarLeave = () => {
-    if (winOrch.inputBarTimerRef.current) clearTimeout(winOrch.inputBarTimerRef.current);
-    winOrch.inputBarTimerRef.current = setTimeout(() => {
-      isInputHoveredRef.current = false;
-      applyDim();
-      setShowInputBar(false);
-    }, 50);
-  };
-
-  // 鼠标进入云朵区域：维护低干扰状态
-  const handlePetAreaEnter = () => {
-    isPetHoveredRef.current = true;
-    applyDim();
-    resetIdle();
-  };
-
-  // 鼠标离开云朵区域
-  const handlePetAreaLeave = () => {
-    isPetHoveredRef.current = false;
-    applyDim();
-  };
-
   return (
     <div className="app" style={{
       opacity: isPassthrough
         ? 0.3
-        : (ccActive && disturbMode !== 0)
+        : (ccActive && displayDisturbMode !== 0)
           ? 1
-          : (disturbMode === 2 ? 0 : disturbMode === 1 ? 0.15 : 1),
+          : (displayDisturbMode === 2 ? 0 : displayDisturbMode === 1 ? 0.15 : 1),
       transition: 'opacity 0.4s ease',
-      pointerEvents: (disturbMode === 2 && !ccActive) ? 'none' : 'auto',
+      pointerEvents: (displayDisturbMode === 2 && !ccActive) ? 'none' : 'auto',
     }}>
       {/* 云朵 + 菜单容器 */}
       <div
-        ref={petAreaRef}
+        ref={winOrch.petAreaRef}
         className="pet-area"
-        onMouseEnter={handlePetAreaEnter}
-        onMouseLeave={handlePetAreaLeave}
+        onMouseEnter={winOrch.handlePetAreaEnter}
+        onMouseLeave={winOrch.handlePetAreaLeave}
       >
         {/* 菜单触发区：悬停在此处才显示菜单 */}
         <div
@@ -548,15 +346,15 @@ export default function App() {
         </div>
       </div>
 
-      <div ref={inputBarRef} style={{ width: '100%', transform: 'translateY(-40px)', paddingTop: '20px' }}>
+      <div ref={winOrch.inputBarRef} style={{ width: '100%', transform: 'translateY(-40px)', paddingTop: '20px' }}>
         <InputBar
           onSend={handleSend}
           isProcessing={isProcessing}
           visible={showInputBar}
-          onMouseEnter={handleInputBarEnter}
-          onMouseLeave={handleInputBarLeave}
-          onInputFocus={handleInputFocus}
-          onInputBlur={handleInputBlur}
+          onMouseEnter={winOrch.handleInputBarEnter}
+          onMouseLeave={winOrch.handleInputBarLeave}
+          onInputFocus={winOrch.handleInputFocus}
+          onInputBlur={winOrch.handleInputBlur}
         />
       </div>
     </div>
