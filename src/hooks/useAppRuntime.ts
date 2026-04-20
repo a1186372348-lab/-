@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { CloudExpression, FocusClockState } from '../types';
+import type { CloudExpression } from '../types';
 
 // 兼容 re-export：外部消费者仍可从本文件导入 FocusClockState
 export type { FocusClockState } from '../types';
@@ -216,7 +216,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
         } else {
           callbacksRef.current.showSpeech('休息结束，继续专注！加油 💪', 4000);
         }
-        useAppStore.getState().setFocusClock((prev: FocusClockState | null) =>
+        useAppStore.getState().setFocusClock((prev) =>
           prev ? { ...prev, phase: next, remainSecs: payload.remainSecs, totalSecs: payload.remainSecs, running: false } : null
         );
       });
@@ -237,7 +237,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
       // focus-pause
       const un4 = await typedListen('focus-pause', (payload) => {
-        useAppStore.getState().setFocusClock((prev: FocusClockState | null) =>
+        useAppStore.getState().setFocusClock((prev) =>
           prev ? { ...prev, running: false, remainSecs: payload.remainSecs } : null
         );
       });
@@ -253,7 +253,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
       // focus-tick
       const un6 = await typedListen('focus-tick', (payload) => {
-        useAppStore.getState().setFocusClock((prev: FocusClockState | null) =>
+        useAppStore.getState().setFocusClock((prev) =>
           prev ? { ...prev, remainSecs: payload.remainSecs } : null
         );
       });
