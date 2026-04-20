@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { emitTo } from '@tauri-apps/api/event';
+import { typedEmitTo } from '../../events';
 import { getDb, getSetting, setSetting } from '../../services/db';
 import './index.css';
 
@@ -27,7 +27,7 @@ export default function SettingsPage() {
     await setSetting('reminder_interval_min', String(reminderInterval));
     await setSetting('vision_provider', visionProvider);
     await setSetting('vision_api_key', visionApiKey.trim());
-    await emitTo('main', 'settings-changed');
+    await typedEmitTo('main', 'settings-changed', {} as Record<string, never>);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { listen } from '@tauri-apps/api/event';
+import { typedListen } from '../../events';
 import {
   fetchScheduledTasks,
   insertScheduledTask,
@@ -105,7 +105,7 @@ export default function SchedulerPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    const unlistenPromise = listen('scheduler:reload', () => { load(); });
+    const unlistenPromise = typedListen('scheduler:reload', () => { load(); });
     return () => { unlistenPromise.then(fn => fn()); };
   }, [load]);
 

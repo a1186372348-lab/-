@@ -10,7 +10,7 @@
 
 import { useCallback, useState } from 'react';
 import { Howl } from 'howler';
-import { emit } from '@tauri-apps/api/event';
+import { typedEmitTo } from './events';
 import { chatStream } from './services/ai';
 import { useAppStore } from './store';
 import type { WeatherCondition } from './types';
@@ -27,14 +27,10 @@ const thunderSound = new Howl({ src: ['/sounds/thunder.mp3'], volume: 0.4, prelo
 let _resetIdle: () => void = () => {};
 
 export default function App() {
-  const { expression, weather, showHoverMenu, isProcessing,
+  const { expression, weather, showHoverMenu, isProcessing, ccActive,
     setExpression, setWeather, setShowHoverMenu, setIsProcessing } = useAppStore();
 
   const [showInputBar, setShowInputBar] = useState(false);
-  const [focusClock, setFocusClock] = useState<{
-    running: boolean; phase: 'focus' | 'rest'; remainSecs: number; totalSecs: number;
-  } | null>(null);
-  const [ccActive, setCcActive] = useState(false);
 
   const winOrch = useWindowOrchestration({
     setShowHoverMenu, setShowInputBar, onActivity: () => _resetIdle(),
@@ -47,7 +43,7 @@ export default function App() {
     showSpeech,
     getDisturbMode: () => winOrch.disturbModeRef.current,
     isUserTyping: () => winOrch.isInputFocusedRef.current,
-    setFocusClock, setCcActive, setIsProcessing,
+    setIsProcessing,
     playThunder: () => thunderSound.play(),
     focusHideTimerRef: winOrch.focusHideTimerRef,
     hideFocusWindow: winOrch.hideFocusWindow,
@@ -61,9 +57,9 @@ export default function App() {
     let firstChunk = true;
     await chatStream(text, (delta) => {
       if (firstChunk) { showSpeech(delta, 0); firstChunk = false; setExpression('happy'); }
-      else emit('speech:append', { delta });
+      else typedEmitTo('speech-bubble', 'speech:append', { delta });
     });
-    emit('speech:done', { duration: 5000 });
+    typedEmitTo('speech-bubble', 'speech:done', { duration: 5000 });
     setTimeout(() => setExpression('default'), 2000);
     setIsProcessing(false);
   }, []);
@@ -87,7 +83,7 @@ export default function App() {
           onSchedulerBtnEnter={winOrch.handleSchedulerBtnEnter} onSchedulerBtnLeave={winOrch.handleSchedulerBtnLeave}
           onMenuEnter={winOrch.handleMenuZoneEnter} onMenuLeave={winOrch.handleMenuZoneLeave} />
         <div className="cloud-pet-bubble-anchor">
-          <CloudPet expression={expression} weather={weather} isProcessing={isProcessing} focusClock={focusClock} />
+          <CloudPet expression={expression} weather={weather} isProcessing={isProcessing} />
         </div>
       </div>
       <div ref={winOrch.inputBarRef} style={{ width: '100%', transform: 'translateY(-40px)', paddingTop: '20px' }}>

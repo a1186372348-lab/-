@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalPosition } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import { emit } from '@tauri-apps/api/event';
+import { typedEmitTo } from '../events';
 
 // ── 内部类型 ──────────────────────────────────────────────
 type Bounds = { x: number; y: number; w: number; h: number };
@@ -410,7 +410,7 @@ export function useWindowOrchestration(opts?: WindowOrchestrationOpts) {
         bubbleReadyRef.current = true;
         await new Promise<void>(r => setTimeout(r, 400));
       }
-      await emit('speech:show', { text, duration: durationMs });
+      await typedEmitTo('speech-bubble', 'speech:show', { text, duration: durationMs });
     } catch {
       // 静默失败
     }

@@ -177,6 +177,19 @@ export function startXxxService(callbacks: XxxCallbacks): () => void {
 
 服务不直接访问 React state，外部数据通过回调参数注入。
 
+### 事件规范
+
+- 运行代码**禁止**直接 `import` `@tauri-apps/api/event`（仅 `src/events/bus.ts` 可导入）
+- 事件发送优先使用 `typedEmitTo`（定向发送），避免 `typedEmit`（广播）
+- 事件监听统一使用 `typedListen`（自动解包 payload）
+- 新增事件流程：先在 `EventMap` 中定义事件名和 payload 类型，再接入业务代码，最后更新 `src/events/EVENTS.md`
+
+### 状态管理约定
+
+- 跨组件共享的 UI 状态（如 expression、weather、focusClock、ccActive）优先放入 Zustand store
+- 需要持久化的状态（如 todos、settings、scheduler）优先使用 SQLite
+- **禁止**在 `App.tsx` 堆积跨组件业务状态（通过 useState + prop drilling 模式），应迁入 Zustand
+
 ---
 
 ## 接口契约规范
@@ -224,6 +237,10 @@ npm run check          # TS + Rust 类型检查
 | `src/services/db.ts` | SQLite 数据层（CRUD + 迁移） |
 | `src/services/ai.ts` | AI 对话 + 记忆压缩 + 嵌入 |
 | `src/services/screenMonitor.ts` | 屏幕感知 + 主动交互 |
+| `src/events/types.ts` | 事件类型定义（EventMap + payload 接口） |
+| `src/events/bus.ts` | 类型安全事件总线（typedEmit/typedEmitTo/typedListen） |
+| `src/events/EVENTS.md` | 事件注册表与治理规则 |
+| `src/STATE.md` | 状态归属规则文档 |
 | `src-tauri/src/lib.rs` | Tauri 初始化 + 命令注册 |
 | `src-tauri/tauri.conf.json` | 窗口配置 |
 

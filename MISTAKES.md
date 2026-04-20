@@ -87,4 +87,13 @@
 
 ---
 
+### 跨 Layer 分支未合并导致后续 Layer 缺失前置代码
+- 层级：ALL
+- 现象：L2 分支从 main 创建，但 L1 分支从未 merge 到 main，导致 L1 的 hooks 拆分成果（useAppRuntime.ts、useWindowOrchestration.ts、App.tsx 瘦身）在 L2 分支上完全不存在，L2 PRD 引用的目标文件全部找不到，Ralph 反复卡住
+- 根因：Ralph agent 只负责在当前分支实现 stories，不负责 PR 和合并。两个 Layer 之间缺少"合并上一层 → 验证 → 再开新分支"的流程步骤
+- 正确做法：1) 每个 Layer 完成后必须先 merge 到 main（或创建 PR 合并）；2) 新 Layer 的 branch 必须从上一个 Layer 的 branch（或其已合并的 main）创建；3) 创建新 Layer 分支后，立即验证前置 Layer 的关键文件存在；4) PRD 的前置条件中显式写明"依赖 L(n-1) branch 已合并到 main"
+- 日期：2026-04-19
+
+---
+
 <!-- 在此追加新错误，保持格式一致 -->

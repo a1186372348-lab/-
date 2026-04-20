@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { listen, emit } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { CloudExpression } from '../types';
+
+// 兼容 re-export：外部消费者仍可从本文件导入 FocusClockState
+export type { FocusClockState } from '../types';
 import { startWeatherSync } from '../services/weather';
 import { startTimeCycleService } from '../services/timeCycle';
 import type { TimePeriod } from '../services/timeCycle';
@@ -12,14 +14,7 @@ import { startScreenMonitor, stopScreenMonitor } from '../services/screenMonitor
 import { resetClient } from '../services/ai';
 import { getDb, getSetting } from '../services/db';
 import { useAppStore } from '../store';
-
-// ── 类型 ──────────────────────────────────────────────────
-export type FocusClockState = {
-  running: boolean;
-  phase: 'focus' | 'rest';
-  remainSecs: number;
-  totalSecs: number;
-};
+import { typedEmitTo, typedListen } from '../events';
 
 // ── Callbacks 契约 ─────────────────────────────────────────
 export interface AppRuntimeCallbacks {
@@ -33,10 +28,6 @@ export interface AppRuntimeCallbacks {
   getDisturbMode: () => number;
   /** 用户是否正在输入 */
   isUserTyping: () => boolean;
-  /** 设置专注时钟状态（支持直接赋值或函数式更新） */
-  setFocusClock: (stateOrUpdater: FocusClockState | null | ((prev: FocusClockState | null) => FocusClockState | null)) => void;
-  /** 设置 CC 工作感知状态 */
-  setCcActive: (active: boolean) => void;
   /** 设置 AI 处理中状态 */
   setIsProcessing: (processing: boolean) => void;
   /** 播放音效 */
@@ -152,7 +143,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       });
 
       // 设置保存后重置 AI 客户端缓存并更新提醒间隔
-      const unlistenSettings = await listen('settings-changed', async () => {
+      const unlistenSettings = await typedListen('settings-changed', async () => {
         resetClient();
         const newInterval = await getSetting('reminder_interval_min');
         reminderIntervalRef.current = newInterval ? parseInt(newInterval) : 60;
@@ -175,10 +166,10 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
         callbacksRef.current.setExpression('happy');
       },
       onChunk: (delta) => {
-        emit('speech:append', { delta });
+        typedEmitTo('speech-bubble', 'speech:append', { delta });
       },
       onDone: () => {
-        emit('speech:done', { duration: 5000 });
+        typedEmitTo('speech-bubble', 'speech:done', { duration: 5000 });
         setTimeout(() => callbacksRef.current.setExpression('default'), 2000);
       },
     });
@@ -208,7 +199,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
 
     const registerListeners = async () => {
       // all-todos-complete
-      const un1 = await listen('all-todos-complete', () => {
+      const un1 = await typedListen('all-todos-complete', () => {
         callbacksRef.current.setExpression('proudly');
         setTimeout(() => callbacksRef.current.setExpression('default'), 3000);
       });
@@ -216,8 +207,8 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un1);
 
       // focus-phase-change
-      const un2 = await listen<{ phase: string; remainSecs: number }>('focus-phase-change', ({ payload }) => {
-        const next = payload.phase as 'focus' | 'rest';
+      const un2 = await typedListen('focus-phase-change', (payload) => {
+        const next = payload.phase;
         if (next === 'rest') {
           callbacksRef.current.showSpeech('专注结束！休息一下吧 🎉', 5000);
           callbacksRef.current.setExpression('happy');
@@ -225,7 +216,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
         } else {
           callbacksRef.current.showSpeech('休息结束，继续专注！加油 💪', 4000);
         }
-        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+        useAppStore.getState().setFocusClock((prev) =>
           prev ? { ...prev, phase: next, remainSecs: payload.remainSecs, totalSecs: payload.remainSecs, running: false } : null
         );
       });
@@ -233,10 +224,10 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un2);
 
       // focus-start
-      const un3 = await listen<{ phase: string; remainSecs: number; task?: string }>('focus-start', ({ payload }) => {
-        callbacksRef.current.setFocusClock({
+      const un3 = await typedListen('focus-start', (payload) => {
+        useAppStore.getState().setFocusClock({
           running: true,
-          phase: payload.phase as 'focus' | 'rest',
+          phase: payload.phase,
           remainSecs: payload.remainSecs,
           totalSecs: payload.remainSecs,
         });
@@ -245,8 +236,8 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un3);
 
       // focus-pause
-      const un4 = await listen<{ phase: string; remainSecs: number }>('focus-pause', ({ payload }) => {
-        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+      const un4 = await typedListen('focus-pause', (payload) => {
+        useAppStore.getState().setFocusClock((prev) =>
           prev ? { ...prev, running: false, remainSecs: payload.remainSecs } : null
         );
       });
@@ -254,15 +245,15 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un4);
 
       // focus-reset
-      const un5 = await listen('focus-reset', () => {
-        callbacksRef.current.setFocusClock(null);
+      const un5 = await typedListen('focus-reset', () => {
+        useAppStore.getState().setFocusClock(null);
       });
       if (!mounted) { un5(); return; }
       cleanups.push(un5);
 
       // focus-tick
-      const un6 = await listen<{ phase: string; remainSecs: number }>('focus-tick', ({ payload }) => {
-        callbacksRef.current.setFocusClock((prev: FocusClockState | null) =>
+      const un6 = await typedListen('focus-tick', (payload) => {
+        useAppStore.getState().setFocusClock((prev) =>
           prev ? { ...prev, remainSecs: payload.remainSecs } : null
         );
       });
@@ -270,7 +261,7 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un6);
 
       // focus-mouse-enter
-      const un7 = await listen('focus-mouse-enter', () => {
+      const un7 = await typedListen('focus-mouse-enter', () => {
         if (callbacksRef.current.focusHideTimerRef.current) {
           clearTimeout(callbacksRef.current.focusHideTimerRef.current);
         }
@@ -279,19 +270,19 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
       cleanups.push(un7);
 
       // focus-mouse-leave
-      const un8 = await listen('focus-mouse-leave', () => {
+      const un8 = await typedListen('focus-mouse-leave', () => {
         callbacksRef.current.focusHideTimerRef.current = setTimeout(callbacksRef.current.hideFocusWindow, 500);
       });
       if (!mounted) { un8(); return; }
       cleanups.push(un8);
 
       // cc-event
-      const un9 = await listen<{ event: string; tool: string }>('cc-event', ({ payload }) => {
+      const un9 = await typedListen('cc-event', (payload) => {
         if (ccTimerRef.current) {
           clearTimeout(ccTimerRef.current);
           ccTimerRef.current = null;
         }
-        callbacksRef.current.setCcActive(true);
+        useAppStore.getState().setCcActive(true);
 
         if (payload.event === 'PermissionRequest') {
           ccPermissionPendingRef.current = true;
@@ -303,15 +294,15 @@ export function useAppRuntime(callbacks: AppRuntimeCallbacks) {
           callbacksRef.current.showSpeech('主人，任务完成了！', 0);
           ccTimerRef.current = setTimeout(() => {
             callbacksRef.current.setExpression('default');
-            callbacksRef.current.setCcActive(false);
-            emit('speech:done', { duration: 300 });
+            useAppStore.getState().setCcActive(false);
+            typedEmitTo('speech-bubble', 'speech:done', { duration: 300 });
             ccTimerRef.current = null;
           }, 3000);
         } else {
           if (ccPermissionPendingRef.current) {
             ccPermissionPendingRef.current = false;
             callbacksRef.current.setExpression('default');
-            emit('speech:done', { duration: 300 });
+            typedEmitTo('speech-bubble', 'speech:done', { duration: 300 });
           }
         }
       });
